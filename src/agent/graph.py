@@ -16,7 +16,7 @@ from agent.routing import (
     route_after_retrieve,
     route_after_tools,
 )
-from agent.state import AgentState
+from agent.state import AgentState, OutputState
 from agent.tools.registry import load_tools
 from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -53,7 +53,8 @@ async def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> Compil
     docs = load_and_split_docs()
     vectorstore = await build_vectorstore(docs, get_embeddings())
 
-    graph = StateGraph(AgentState)
+    # output_schema: ainvoke 결과를 {"answer": str}로 제한한다. 내부 state(messages 등)는 호출자에게 노출되지 않는다.
+    graph = StateGraph(AgentState, output_schema=OutputState)
 
     graph.add_node("classify", make_classify_node())
     graph.add_node("retrieve", make_retrieve_node(vectorstore))

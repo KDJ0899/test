@@ -14,3 +14,9 @@ class AgentState(TypedDict):
     intent: Literal["chat", "rag", "tool"] | None
     retrieved_docs: list[Document]
     error: str | None
+
+
+class OutputState(TypedDict):
+    # StateGraph(output_schema=...)로 지정하면 ainvoke 결과가 이 키들만 담긴 dict로 제한된다.
+    # respond/error 노드가 최종 답변 문자열을 여기에 쓴다.
+    answer: str
