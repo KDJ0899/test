@@ -1,0 +1,35 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets (키 이름만 담긴 .env.example 은 커밋한다)
+.env
+.env.*
+!.env.example
+
+# Test / tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Runtime data (save_note 가 쌓는 메모)
+data/notes.jsonl
+
+# Local scratch / 생성물
+scratch_*
+graph.png
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

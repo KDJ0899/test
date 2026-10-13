@@ -1,0 +1,32 @@
+[project]
+name = "ai-project"
+version = "0.1.0"
+description = "LangGraph 기반 AI Agent workflow 예제 (레퍼런스 코드)"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-text-splitters>=0.3.0",
+    "pydantic-settings>=2.5.0",
+    "python-dotenv>=1.0.0",
+    "numpy>=1.26.0",
+    "tavily-python>=0.8.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
