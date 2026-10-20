@@ -1,111 +1,126 @@
-# 로컬 샘플 툴 모음. 주제 중립적인 범용 툴로, 조회/계산/변경 각 유형을 하나씩 보여준다.
-# save_note는 상태를 바꾸는 툴이라 HITL 승인 대상이다 (registry.py의 REQUIRES_APPROVAL).
-# search_web은 저장소 안 데이터가 아니라 실제 외부 API(Tavily)를 호출하는 유일한 예외다 (CLAUDE.md 환경 제약 참고).
+# 로컬 툴 모음. 검색 툴은 data/*.json(샘플 가상 데이터)만 읽고, save_trip_plan은 data/saved_trips.json에 쓴다.
+# 외부 API는 호출하지 않는다 (전부 저장소 안 데이터만 사용).
+# 모든 툴은 {status, source, data, error?} 형태의 JSON 문자열을 돌려준다 (ingest_tool_results가 이 형식을 읽어 State에 반영).
 
-import ast
 import json
-import operator
-from datetime import datetime
+import uuid
+from datetime import date, datetime
 from pathlib import Path
+from typing import Any
 
-from agent.config import settings
+from agent.clock import WEEKDAY_NAMES, today
 from langchain_core.tools import tool
-from tavily import AsyncTavilyClient
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
-ITEMS_PATH = DATA_DIR / "sample_items.json"
-NOTES_PATH = DATA_DIR / "notes.jsonl"
-
-_ALLOWED_BIN_OPS = {
-    ast.Add: operator.add,
-    ast.Sub: operator.sub,
-    ast.Mult: operator.mul,
-    ast.Div: operator.truediv,
-    ast.FloorDiv: operator.floordiv,
-    ast.Mod: operator.mod,
-    ast.Pow: operator.pow,
-}
-_ALLOWED_UNARY_OPS = {
-    ast.UAdd: operator.pos,
-    ast.USub: operator.neg,
-}
+EVENTS_PATH = DATA_DIR / "sports_events.json"
+PLACES_PATH = DATA_DIR / "tourist_places.json"
+RESTAURANTS_PATH = DATA_DIR / "restaurants.json"
+SAVED_TRIPS_PATH = DATA_DIR / "saved_trips.json"
 
 
-def _safe_eval(node: ast.AST) -> float:
-    """eval 없이 사칙연산 수식만 안전하게 계산하는 재귀 평가기. 허용되지 않은 노드는 거부한다."""
-    if isinstance(node, ast.Expression):
-        return _safe_eval(node.body)
-    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
-        return node.value
-    if isinstance(node, ast.BinOp) and type(node.op) in _ALLOWED_BIN_OPS:
-        return _ALLOWED_BIN_OPS[type(node.op)](_safe_eval(node.left), _safe_eval(node.right))
-    if isinstance(node, ast.UnaryOp) and type(node.op) in _ALLOWED_UNARY_OPS:
-        return _ALLOWED_UNARY_OPS[type(node.op)](_safe_eval(node.operand))
-    raise ValueError(f"허용되지 않은 수식입니다: {ast.dump(node)}")
+def _ok(source: str, data: Any) -> str:
+    return json.dumps({"status": "ok", "source": source, "data": data}, ensure_ascii=False)
+
+
+def _fail(source: str, error: str) -> str:
+    return json.dumps({"status": "error", "source": source, "data": None, "error": error}, ensure_ascii=False)
+
+
+def _load(path: Path) -> list[dict]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _near_first(items: list[dict], near_venue: str | None) -> list[dict]:
+    """near_venue가 있으면 그 경기장 근처로 표시된 항목을 앞으로 보낸다 (제외하지는 않는다)."""
+    if not near_venue:
+        return items
+    return sorted(items, key=lambda x: near_venue not in x.get("nearby_venues", []))
 
 
 @tool
 def get_current_datetime() -> str:
-    """현재 날짜와 시간을 ISO 8601 형식 문자열로 반환한다. 인자가 필요 없다."""
-    return datetime.now().isoformat(timespec="seconds")
+    """현재 날짜와 시간, 요일, 타임존을 반환한다. '다음 달', '이번 주' 같은 상대 날짜를 해석할 때 먼저 사용한다. 인자가 필요 없다."""
+    now = datetime.now().astimezone()
+    d = today()
+    return _ok(
+        "local_system",
+        {
+            "today": d.isoformat(),
+            "weekday": WEEKDAY_NAMES[d.weekday()],
+            "now": now.isoformat(timespec="seconds"),
+            "timezone": str(now.tzinfo),
+        },
+    )
 
 
 @tool
-def calculate(expression: str) -> str:
-    """사칙연산(+ - * / ** % 괄호) 수식을 계산한다. 예: "(3 + 5) * 2". eval을 쓰지 않는 안전한 파서로 계산한다."""
+def search_sports_events(
+    sport_type: str = "baseball",
+    team: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    city: str | None = None,
+    weekdays: list[int] | None = None,
+) -> str:
+    """경기 일정을 검색한다. 팀 이름 일부(예: '롯데'), 날짜 범위(YYYY-MM-DD), 도시, 요일(월=0 ... 일=6)로 거를 수 있다.
+    여행할 경기를 찾거나 경기 일정을 물어볼 때 사용한다. 결과가 0건이면 경기를 지어내지 말고 그대로 알려야 한다.
+    현재는 가상 샘플 데이터(is_demo=true)라 실제 확정 경기가 아니다."""
     try:
-        tree = ast.parse(expression, mode="eval")
-        result = _safe_eval(tree)
-    except Exception as exc:
-        return f"계산 실패: {exc}"
-    return str(result)
+        start = date.fromisoformat(start_date) if start_date else None
+        end = date.fromisoformat(end_date) if end_date else None
+    except ValueError:
+        return _fail("sample:sports_events.json", "날짜는 YYYY-MM-DD 형식이어야 한다.")
+
+    events = [e for e in _load(EVENTS_PATH) if e["sport_type"] == sport_type]
+    if team:
+        events = [e for e in events if team in e["home_team"] or team in e["away_team"]]
+    if city:
+        events = [e for e in events if e["city"] == city]
+    if start:
+        events = [e for e in events if date.fromisoformat(e["start_at"][:10]) >= start]
+    if end:
+        events = [e for e in events if date.fromisoformat(e["start_at"][:10]) <= end]
+    if weekdays:
+        events = [e for e in events if date.fromisoformat(e["start_at"][:10]).weekday() in weekdays]
+    events.sort(key=lambda e: e["start_at"])
+    return _ok("sample:sports_events.json", {"events": events, "count": len(events)})
 
 
 @tool
-def search_items(query: str | None = None, category: str | None = None) -> str:
-    """샘플 상품 목록에서 키워드(query)나 카테고리(category)로 검색한다. 둘 다 생략하면 전체 목록을 반환한다."""
-    items = json.loads(ITEMS_PATH.read_text(encoding="utf-8"))
-
-    results = items
+def search_places(city: str, category: str | None = None, near_venue: str | None = None, limit: int = 5) -> str:
+    """도시의 관광지를 검색한다. category는 sea(바다), culture(문화), market(시장), nature(자연) 중 하나.
+    near_venue에 경기장 이름을 주면 근처 장소를 앞에 둔다. 일정에 넣을 장소 후보를 찾을 때 사용한다. (가상 샘플 데이터)"""
+    places = [p for p in _load(PLACES_PATH) if p["city"] == city]
     if category:
-        results = [item for item in results if item["category"] == category]
-    if query:
-        results = [
-            item
-            for item in results
-            if query.lower() in item["name"].lower() or query.lower() in item["description"].lower()
-        ]
-
-    if not results:
-        return "검색 결과가 없습니다."
-    return json.dumps(results, ensure_ascii=False)
+        places = [p for p in places if p["category"] == category]
+    places = _near_first(places, near_venue)[:limit]
+    return _ok("sample:tourist_places.json", {"places": places, "count": len(places)})
 
 
 @tool
-async def search_web(query: str) -> str:
-    """실시간 웹 검색을 한다 (Tavily API). 최신 뉴스/시세처럼 저장소 안 데이터나 모델 지식만으로는
-    답할 수 없는, 지금 인터넷에서 찾아봐야 하는 정보가 필요할 때만 사용한다."""
-    client = AsyncTavilyClient(api_key=settings.tavily_api_key)
+def search_restaurants(city: str, cuisine: str | None = None, near_venue: str | None = None, limit: int = 5) -> str:
+    """도시의 식당을 검색한다. cuisine은 음식 종류(예: 돼지국밥, 회). near_venue에 경기장 이름을 주면 근처 식당을 앞에 둔다.
+    식사 장소 후보가 필요할 때 사용한다. (가상 샘플 데이터, 영업시간 정보 없음)"""
+    restaurants = [r for r in _load(RESTAURANTS_PATH) if r["city"] == city]
+    if cuisine:
+        restaurants = [r for r in restaurants if cuisine in r["cuisine"]]
+    restaurants = _near_first(restaurants, near_venue)[:limit]
+    return _ok("sample:restaurants.json", {"restaurants": restaurants, "count": len(restaurants)})
+
+
+@tool
+def save_trip_plan(trip_plan: dict) -> str:
+    """현재 여행 일정(trip_plan)을 로컬 파일(data/saved_trips.json)에 저장한다. 파일을 쓰는 작업이라 사용자 승인이 필요하다.
+    사용자가 일정 저장을 요청했을 때만 호출한다."""
+    source = "local:saved_trips.json"
     try:
-        response = await client.search(query, max_results=5)
+        saved = _load(SAVED_TRIPS_PATH) if SAVED_TRIPS_PATH.exists() else []
+        saved_id = f"trip-{uuid.uuid4().hex[:8]}"
+        saved.append({"saved_id": saved_id, "saved_at": datetime.now().isoformat(timespec="seconds"), "trip_plan": trip_plan})
+        SAVED_TRIPS_PATH.write_text(json.dumps(saved, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as exc:
-        return f"웹 검색 실패: {exc}"
-
-    results = response.get("results", [])
-    if not results:
-        return "검색 결과가 없습니다."
-
-    lines = [f"- {r['title']}: {r['content'][:200]} ({r['url']})" for r in results]
-    return "\n".join(lines)
+        return _fail(source, f"일정 저장 실패: {exc}")
+    return _ok(source, {"saved_id": saved_id, "path": str(SAVED_TRIPS_PATH)})
 
 
-@tool
-def save_note(note: str) -> str:
-    """메모를 로컬 파일(data/notes.jsonl)에 저장한다. 파일/설정 등을 바꾸는 작업이라 실행 전 사용자 승인이 필요하다."""
-    entry = {"note": note, "saved_at": datetime.now().isoformat(timespec="seconds")}
-    with NOTES_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    return f"메모를 저장했습니다: {note}"
-
-
-LOCAL_TOOLS = [get_current_datetime, calculate, search_items, search_web, save_note]
+LOCAL_TOOLS = [get_current_datetime, search_sports_events, search_places, search_restaurants, save_trip_plan]

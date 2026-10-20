@@ -1,0 +1,120 @@
+# plan_trip 노드: 선택한 경기 + 확보한 관광지/식당 + 여행 조건으로 일정을 만든다 (LLM, Structured Output).
+# 만든 일정은 validate_trip_plan(순수 함수)으로 검증하고, 실패하면 위반 내용을 알려 한 번만 다시 만든다.
+# 그래도 실패하면 일정을 확정하지 않고 어떤 제약을 못 지켰는지 사용자에게 설명한다. 성공한 일정만 State(trip_plan)에 저장한다.
+
+import json
+from collections.abc import Awaitable, Callable
+
+from agent.llm import get_llm
+from agent.prompts import PLAN_INVALID_TEMPLATE, PLAN_NOTICE, PLAN_RETRY_FEEDBACK, PLAN_SYSTEM_PROMPT
+from agent.state import AgentState
+from agent.trip_state import describe_event, selected_event
+from agent.trip_validation import validate_trip_plan
+from langchain_core.messages import AIMessage, SystemMessage
+from pydantic import BaseModel
+
+
+class PlanItemDraft(BaseModel):
+    day: int
+    start_at: str  # YYYY-MM-DDTHH:MM:SS
+    end_at: str
+    place_id: str | None = None
+    event_id: str | None = None
+    activity: str
+    notes: str = ""
+    is_estimated: bool = True
+
+
+class TripPlanDraft(BaseModel):
+    title: str
+    items: list[PlanItemDraft]
+    notes: str = ""
+
+
+def build_plan(draft: TripPlanDraft, event: dict, duration_days: int, state: AgentState) -> dict:
+    """LLM 초안에 출처 정보를 코드로 덧붙여 최종 plan dict를 만든다 (출처는 LLM이 쓰지 않는다)."""
+    catalog = {p["id"]: p for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
+    used = {i.place_id for i in draft.items if i.place_id in catalog}
+    sources = [{"id": event["id"], "name": f"{event['home_team']} vs {event['away_team']}", **_source(event)}]
+    sources += [{"id": pid, "name": catalog[pid]["name"], **_source(catalog[pid])} for pid in sorted(used)]
+    return {
+        "title": draft.title,
+        "event_id": event["id"],
+        "duration_days": duration_days,
+        "items": [i.model_dump() for i in draft.items],
+        "notes": draft.notes,
+        "sources": sources,
+    }
+
+
+def _source(record: dict) -> dict:
+    return {"source_type": record.get("source_type"), "is_demo": record.get("is_demo", False),
+            "source_url": record.get("source_url"), "verified_at": record.get("verified_at")}
+
+
+def format_trip_plan(plan: dict, state: AgentState) -> str:
+    """plan dict를 사용자에게 보여줄 텍스트로 바꾼다 (LLM 없음). 장소 이름은 검색 캐시에서 찾는다."""
+    catalog = {p["id"]: p["name"] for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
+    lines = [f"## {plan['title']}"]
+    event = selected_event(state)
+    if event:
+        lines.append(f"경기: {describe_event(event)}")
+    for day in range(1, plan["duration_days"] + 1):
+        lines.append(f"\n**Day {day}**")
+        for item in sorted((i for i in plan["items"] if i["day"] == day), key=lambda i: i["start_at"]):
+            span = f"{item['start_at'][11:16]}~{item['end_at'][11:16]}" + (" (예상)" if item["is_estimated"] else "")
+            place = f" [{catalog[item['place_id']]}]" if item.get("place_id") in catalog else ""
+            note = f" - {item['notes']}" if item["notes"] else ""
+            lines.append(f"- {span} {item['activity']}{place}{note}")
+    if plan["notes"]:
+        lines.append(f"\n{plan['notes']}")
+    demo = any(s["is_demo"] for s in plan["sources"])
+    lines.append("\n" + PLAN_NOTICE.format(source_note="가상 샘플 데이터(실제 확정 일정 아님)" if demo else "검증 상태 확인이 필요한 데이터"))
+    return "\n".join(lines)
+
+
+def make_plan_trip_node() -> Callable[[AgentState], Awaitable[dict]]:
+    structured_llm = get_llm().with_structured_output(TripPlanDraft)
+
+    async def plan_trip_node(state: AgentState) -> dict:
+        event = selected_event(state)
+        if not event:
+            return {"error": "선택한 경기를 찾을 수 없어 일정을 만들 수 없습니다."}
+        prefs = state.get("trip_preferences", {})
+        duration = prefs.get("duration_days") or 2
+        known_ids = {p["id"] for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
+
+        errors: list[str] = []
+        try:
+            for _attempt in range(2):  # 초안 1회 + 검증 실패 시 재작성 1회
+                feedback = PLAN_RETRY_FEEDBACK.format(errors="\n".join(f"- {e}" for e in errors)) if errors else ""
+                system = PLAN_SYSTEM_PROMPT.format(
+                    event_start=event["start_at"],
+                    duration_days=duration,
+                    first_date=event["start_at"][:10],
+                    preferences=json.dumps(prefs, ensure_ascii=False),
+                    event=json.dumps(event, ensure_ascii=False),
+                    places=json.dumps(state.get("places") or [], ensure_ascii=False),
+                    restaurants=json.dumps(state.get("restaurants") or [], ensure_ascii=False),
+                    guide="\n".join(d.page_content for d in state.get("retrieved_docs") or []) or "(없음)",
+                    feedback=feedback,
+                )
+                draft = await structured_llm.ainvoke(
+                    [SystemMessage(content=system), *state["messages"]], config={"tags": ["internal"]}
+                )
+                plan = build_plan(draft, event, duration, state)
+                errors = validate_trip_plan(plan, event, duration, known_ids)
+                if not errors:
+                    answer = format_trip_plan(plan, state)
+                    return {
+                        "trip_plan": plan,
+                        "trip_status": "completed",
+                        "messages": [AIMessage(content=answer)],
+                    }
+        except Exception as exc:
+            return {"error": str(exc)}
+
+        answer = PLAN_INVALID_TEMPLATE.format(errors="\n".join(f"- {e}" for e in errors))
+        return {"trip_plan": None, "messages": [AIMessage(content=answer)]}
+
+    return plan_trip_node

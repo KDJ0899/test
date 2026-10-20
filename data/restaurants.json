@@ -1,0 +1,120 @@
+[
+  {
+    "restaurant_id": "rest-gukbap",
+    "id": "rest-gukbap",
+    "name": "돼지국밥 샘플집",
+    "city": "부산",
+    "cuisine": "돼지국밥",
+    "address": "부산 동래구 (샘플 주소)",
+    "estimated_duration_min": 60,
+    "nearby_venues": [
+      "사직야구장"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-milmyeon",
+    "id": "rest-milmyeon",
+    "name": "밀면 샘플집",
+    "city": "부산",
+    "cuisine": "밀면",
+    "address": "부산 부산진구 (샘플 주소)",
+    "estimated_duration_min": 50,
+    "nearby_venues": [
+      "사직야구장"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-hoe",
+    "id": "rest-hoe",
+    "name": "광안리 회 샘플집",
+    "city": "부산",
+    "cuisine": "회",
+    "address": "부산 수영구 (샘플 주소)",
+    "estimated_duration_min": 80,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-eomuk",
+    "id": "rest-eomuk",
+    "name": "어묵 샘플집",
+    "city": "부산",
+    "cuisine": "어묵",
+    "address": "부산 중구 (샘플 주소)",
+    "estimated_duration_min": 40,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-gomjangeo",
+    "id": "rest-gomjangeo",
+    "name": "곰장어 샘플집",
+    "city": "부산",
+    "cuisine": "곰장어",
+    "address": "부산 기장군 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-jogae",
+    "id": "rest-jogae",
+    "name": "조개구이 샘플집",
+    "city": "부산",
+    "cuisine": "조개구이",
+    "address": "부산 영도구 (샘플 주소)",
+    "estimated_duration_min": 80,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-hotteok",
+    "id": "rest-hotteok",
+    "name": "씨앗호떡 샘플집",
+    "city": "부산",
+    "cuisine": "간식",
+    "address": "부산 중구 (샘플 주소)",
+    "estimated_duration_min": 30,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-chicken",
+    "id": "rest-chicken",
+    "name": "야구장 치킨 샘플집",
+    "city": "부산",
+    "cuisine": "치킨",
+    "address": "부산 동래구 (샘플 주소)",
+    "estimated_duration_min": 50,
+    "nearby_venues": [
+      "사직야구장"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  }
+]

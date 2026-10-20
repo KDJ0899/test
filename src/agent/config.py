@@ -20,8 +20,14 @@ class Settings(BaseSettings):
     # Agent <-> Tool 루프 최대 반복
     agent_max_iterations: int = 10
 
-    # Tavily 검색 (search_web 툴, 유일하게 허용된 외부 API 호출)
-    tavily_api_key: str = ""
+    # 승인이 필요한 툴 이름 (JSON 배열로 .env에서 변경 가능). 승인이 필요 없으면 []로 둔다.
+    approval_required_tools: list[str] = ["save_trip_plan"]
+
+    # 상대 날짜("다음 달", "이번 주")의 기준일. 비우면 오늘. 데모/테스트에서 YYYY-MM-DD로 고정한다.
+    today_override: str | None = None
+
+    # 로컬 CLI의 고정 thread_id (InMemorySaver가 이 id로 State를 이어 준다)
+    thread_id: str = "local-demo"
 
 
 settings = Settings()

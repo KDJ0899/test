@@ -18,22 +18,20 @@
 - LLM 호출 + 시스템 프롬프트
 - 질의 의도 분류 (Structured Output)
 - Tool Calling + ReAct 루프 (Agent ⇄ Tool, 로컬 툴만 사용)
-- HITL interrupt/resume용 체크포인터 (멀티턴 대화 기억 용도 아님 — 5.7 참고)
 - RAG (로컬 문서 검색 + 출처 표시)
-- Human-in-the-loop (특정 툴 실행 전 승인, `interrupt`)
+- Human-in-the-loop (특정 툴 실행 전 승인, 대화로 처리 — 5.5 참고)
 - 에러 처리 노드
 
 ### 범위에서 제외 (만들지 말 것)
 - FastAPI 라우터, 엔드포인트, SSE 구현
 - UI
-- MCP, 그 외 외부 API 연동 — 전부 로컬 툴로만 구현한다 (아래 예외 제외)
+- MCP, 그 외 외부 API 연동 — 전부 로컬 툴로만 구현한다
 - 멀티 에이전트 / A2A / Supervisor 패턴
 - 트레이싱, Guardrail, Eval 같은 운영 기능
 
 ### 환경 제약
 - **사내 시스템을 사용하지 않는다.** 사내 DB, 사내 API 연동 금지.
-- **외부 API 직접 호출 금지.** MCP 연동도 없음, 전부 로컬 툴만 (아래 예외 제외).
-  - **예외: Tavily 검색 API.** 웹 검색이 필요해서 `tools/local_tools.py`의 `search_web` 툴이 Tavily API를 직접 호출한다. 그 외 외부 API는 추가하지 않는다.
+- **외부 API 직접 호출 금지.** MCP 연동도 없음, 전부 로컬 툴만.
 - 그 외 로컬 툴은 **저장소 안의 자체 데이터(JSON/SQLite/파일)** 만으로 동작해야 한다.
 - 특정 업무 도메인/주제는 정하지 않는다. 툴과 문서는 **범용 샘플**로 만든다.
 
@@ -68,26 +66,21 @@ async def build_graph() -> CompiledStateGraph:
 ```python
 graph = await build_graph()  # startup 시 1회
 
-# 대화 이력은 UI가 들고 있다가 매 요청마다 전체를 함께 보낸다 (서버는 이전 턴을 기억하지 않음).
-# thread_id는 이 요청(턴) 하나를 위해 새로 발급한다 — HITL interrupt/resume에만 쓰인다.
-config = {"configurable": {"thread_id": new_thread_id()}}
-
-# 일반 질의 (messages에 지금까지의 전체 대화 이력 + 새 질문을 담아 보낸다)
-result = await graph.ainvoke({"messages": full_history + [HumanMessage(content=query)]}, config)
+# 입력: messages = UI가 들고 있는 이전 대화 이력(첫 대화면 생략), user_input = 이번 턴 사용자 질문.
+# 출력: {"answer": str} 하나. 서버는 이전 턴을 기억하지 않으므로 UI가 answer를 이력에 쌓아 다음 요청에 보낸다.
+result = await graph.ainvoke({"messages": history, "user_input": query})
+answer = result["answer"]
 
 # 스트리밍 (FastAPI가 SSE로 변환)
-async for event in graph.astream_events({"messages": [...]}, config, version="v2"):
+async for event in graph.astream_events({"messages": history, "user_input": query}, version="v2"):
     ...
-
-# HITL 승인 후 재개 (같은 턴의 같은 thread_id로)
-await graph.ainvoke(Command(resume={"approved": True}), config)
 ```
 
 규칙:
 - **그래프는 반드시 async로 호출 가능해야 한다.** (LLM 호출이 async이기 때문)
 - 툴 로딩/인덱싱은 **요청마다 하지 않는다.** `build_graph()`에서 1회.
-- `thread_id`는 멀티턴 메모리용이 아니라 **HITL interrupt/resume**을 위한 턴 단위 식별자다. 대화 이력은 UI가 관리하고 매 요청에 전체를 실어 보낸다 (5.8 참고).
-- interrupt 발생 시 FastAPI가 승인 요청을 UI에 보여줄 수 있도록, interrupt payload 형식을 고정한다 (5.5 참고).
+- `messages`에는 **이전 턴까지만** 담는다. 이번 질문은 `user_input`으로만 보낸다 (classify 노드가 이력 끝에 합친다).
+- 승인 대상 툴은 interrupt 없이 대화로 처리되므로 UI/FastAPI가 따로 할 일이 없다 (5.5 참고). 승인 요청 문구도 일반 `answer`로 나오고, 이력에 그대로 남겨 다음 요청에 보내야 한다.
 
 ---
 
@@ -110,7 +103,7 @@ await graph.ainvoke(Command(resume={"approved": True}), config)
 │   │   ├── classify.py     # 질의 의도 분류
 │   │   ├── retrieve.py     # RAG 검색
 │   │   ├── agent.py        # LLM 호출 (툴 바인딩)
-│   │   ├── approval.py     # HITL 승인 (interrupt)
+│   │   ├── approval.py     # HITL 승인 (대화형 승인 요청/판정)
 │   │   ├── respond.py      # 최종 응답 정리 (출처 포함)
 │   │   └── error.py        # 에러 안내 메시지
 │   ├── tools/
@@ -135,12 +128,14 @@ await graph.ainvoke(Command(resume={"approved": True}), config)
 
 ```python
 class AgentState(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]  # 대화 이력
+    messages: Annotated[list[AnyMessage], add_messages]  # 대화 이력 (이전 턴 + classify가 합친 이번 질문)
+    user_input: str                                       # 이번 턴 사용자 질문 (입력)
     intent: Literal["chat", "rag", "tool"] | None         # 분류 결과
     retrieved_docs: list[Document]                        # RAG 검색 결과
     error: str | None                                     # 에러 메시지
 ```
 
+- 그래프 입력은 `InputState`(`messages`, `user_input`), 출력은 `OutputState`(`answer`)로 제한한다 (`StateGraph(..., input_schema, output_schema)`).
 - 툴 실행 결과는 별도 필드 없이 `messages`의 `ToolMessage`로 관리한다 (LangGraph 표준 방식).
 - 매 턴 시작 시 `intent`, `retrieved_docs`, `error`는 초기화된다 (분류 노드에서 덮어씀).
 
@@ -148,13 +143,13 @@ class AgentState(TypedDict):
 
 | 노드 | 파일 | 역할 |
 |---|---|---|
-| `classify` | nodes/classify.py | 마지막 사용자 질의를 `chat / rag / tool` 중 하나로 분류. `with_structured_output` 사용 |
+| `classify` | nodes/classify.py | `user_input`을 이력 끝에 합치고, 그 질의를 `chat / rag / tool` 중 하나로 분류. `with_structured_output` 사용 |
 | `retrieve` | nodes/retrieve.py | 벡터스토어에서 상위 k개 문서 검색 → `retrieved_docs` |
 | `agent` | nodes/agent.py | 시스템 프롬프트 + (RAG면 검색 문서 컨텍스트) + 대화 이력으로 LLM 호출. `intent == "tool"`일 때만 툴 바인딩 |
-| `approval` | nodes/approval.py | 승인 대상 툴 호출이 있으면 `interrupt()`로 중단, 거절 시 거절 `ToolMessage` 추가 후 agent로 복귀 |
+| `approval` | nodes/approval.py | 승인 대상 툴 호출이 있으면 실행하지 않고 승인 요청 `answer`로 턴 종료. 다음 턴에 이력 속 승인 요청 + `user_input`(예/아니오)으로 승인/거절 판정, 거절 시 거절 `ToolMessage` 추가 후 agent로 복귀 |
 | `tools` | graph.py | `langgraph.prebuilt.ToolNode` 사용. 로컬 툴 실행 |
-| `respond` | nodes/respond.py | 최종 AI 메시지 정리. RAG 사용 시 출처(문서명) 덧붙임 |
-| `error` | nodes/error.py | `state.error`를 사용자용 안내 메시지로 변환해 종료 |
+| `respond` | nodes/respond.py | 최종 AI 메시지를 `answer`로 반환. RAG 사용 시 출처(문서명) 덧붙임 |
+| `error` | nodes/error.py | `state.error`를 사용자용 안내 메시지(`answer`)로 변환해 종료 |
 
 ### 5.3 Flow
 
@@ -168,6 +163,7 @@ flowchart TD
     agent -->|tool_calls 없음| respond
     approval -->|승인 / 승인 불필요| tools --> agent
     approval -->|거절| agent
+    approval -->|승인 요청| END
     respond --> END
     classify -.->|error| error
     retrieve -.->|error| error
@@ -189,7 +185,6 @@ flowchart TD
 | `get_current_datetime` | 조회 | 현재 날짜/시간 반환 (인자 없는 가장 단순한 툴 예시) |
 | `calculate` | 계산 | 사칙연산 수식 계산. `eval` 금지, 안전한 파서 사용 |
 | `search_items` | 조회 | `data/sample_items.json`에서 키워드/카테고리로 검색 (인자 있는 조회 툴 예시) |
-| `search_web` | 조회(외부) | Tavily 검색 API로 웹 검색 (유일한 외부 API 호출 툴, 환경 제약의 예외) |
 | `save_note` | **변경** | 메모를 로컬 파일/SQLite에 저장. **HITL 승인 대상** |
 
 - 각 툴은 `@tool` 데코레이터 + **명확한 docstring**(LLM이 언제 써야 하는지 판단하는 근거)을 갖는다.
@@ -198,19 +193,22 @@ flowchart TD
 **툴 레지스트리** (`tools/registry.py`)
 ```python
 async def load_tools() -> list[BaseTool]:      # 로컬 툴 목록 반환
-REQUIRES_APPROVAL: set[str] = {"save_note"}     # 승인 대상 툴 이름
+REQUIRES_APPROVAL: set[str] = {"save_note"}  # 승인 대상 툴 이름
 ```
 
 ### 5.5 Human-in-the-loop
 
-- `approval` 노드는 마지막 AI 메시지의 `tool_calls` 중 `REQUIRES_APPROVAL`에 해당하는 게 있을 때만 `interrupt()`를 호출한다.
-- interrupt payload 형식 (FastAPI/UI와의 계약이므로 고정):
-  ```python
-  {"type": "approval_request", "tool": "<툴 이름>", "args": {...}, "message": "<사용자에게 보여줄 설명>"}
-  ```
-- resume 값: `{"approved": bool}`
-- 거절 시 해당 tool_call에 대해 "사용자가 실행을 거절했습니다" 내용의 `ToolMessage`를 추가하고 agent로 돌아간다 (LLM이 상황을 인지하고 답하도록).
-- interrupt를 쓰려면 checkpointer가 필수다.
+UI가 `{answer}`만 받고 서버가 턴 간 상태를 기억하지 않으므로, `interrupt()` 대신 **승인 질문/답변을 대화로** 주고받는다.
+
+- `approval` 노드는 마지막 AI 메시지의 `tool_calls` 중 `REQUIRES_APPROVAL`에 해당하는 게 있으면, 툴을 실행하지 않고 승인 요청 문구를 `answer`로 내보내며 턴을 끝낸다.
+  - 문구 형식: `[승인 요청] ...` 헤더 + `- <툴 이름>: <인자 JSON>` 줄들 (`prompts.py`). 이 문구가 이력에 일반 AI 메시지로 남는다.
+- 다음 턴에 `user_input`이 "예/아니오"이고 직전 AI 메시지가 같은 툴/인자의 승인 요청이면:
+  - 승인 → `tools`로 진행.
+  - 거절 → 해당 tool_call에 "사용자가 실행을 거절했습니다" `ToolMessage`를 추가하고 agent로 복귀 (LLM이 상황을 인지하고 답하도록).
+- `classify`는 직전 메시지가 승인 요청이고 답이 예/아니오면 LLM 분류 없이 `intent="tool"`로 보낸다 ("예"만으로는 툴이 바인딩되지 않기 때문).
+- 이전 승인 요청과 툴 이름/인자가 다르면 승인으로 보지 않고 다시 묻는다.
+- 승인 요청 **바로 다음 턴**의 답만 유효하다. 요청 뒤에 다른 얘기가 오가면(A 요청 → B 대화 → "예") 직전 메시지가 승인 요청이 아니므로 A는 실행되지 않고 다시 묻는다.
+- checkpointer가 필요 없다 (`build_graph(checkpointer=...)`는 선택 인자).
 
 ### 5.6 RAG
 
@@ -219,12 +217,10 @@ REQUIRES_APPROVAL: set[str] = {"save_note"}     # 승인 대상 툴 이름
 - 검색 결과는 `retrieved_docs`에 저장하고, agent 노드에서 컨텍스트로 프롬프트에 주입한다.
 - `respond` 노드에서 사용된 문서의 파일명을 출처로 표시한다.
 
-### 5.7 체크포인터 (멀티턴 대화 기억은 서버 책임 아님)
+### 5.7 대화 이력 / 체크포인터 (멀티턴 대화 기억은 서버 책임 아님)
 
-- 대화 이력은 **UI/클라이언트가 들고 있다가 매 요청마다 전체를 함께 보낸다.** 서버가 이전 턴을 기억하기 위해 state를 영속시키지 않는다.
-- checkpointer는 오직 **HITL interrupt/resume** 때문에 필요하다 (`interrupt()`로 멈춘 그래프를 이어서 실행하려면 LangGraph 구조상 checkpointer가 필수). 대화 메모리 용도가 아니다.
-- 기본 checkpointer는 `InMemorySaver` (예제용). 교체 가능하게 `build_graph(checkpointer=...)` 인자로 받는다.
-- `thread_id`는 **요청(턴) 단위로 발급**한다. 같은 사용자의 이전 턴과 공유하지 않는다 — 공유하면 checkpointer에 쌓인 이전 메시지와 클라이언트가 다시 보낸 전체 히스토리가 중복된다.
+- 대화 이력은 **UI/클라이언트가 들고 있다가 매 요청마다 `messages`로 함께 보낸다.** 이번 질문은 `user_input`으로 따로 보낸다. 서버가 이전 턴을 기억하기 위해 state를 영속시키지 않는다.
+- 승인 플로우도 이력만으로 동작하므로 checkpointer/`thread_id`가 필요 없다. 필요하면 `build_graph(checkpointer=...)`로 넘긴다.
 
 ### 5.8 스트리밍 고려사항
 
@@ -238,7 +234,7 @@ REQUIRES_APPROVAL: set[str] = {"save_note"}     # 승인 대상 툴 이름
 
 - **예제 코드다.** 과도한 추상화(베이스 클래스, 팩토리 계층, DI 프레임워크) 금지. 함수 위주로 단순하게.
 - 각 파일 상단에 **이 파일이 workflow에서 어떤 역할인지** 한국어 주석으로 2~3줄 설명.
-- LangGraph 핵심 개념이 쓰이는 지점(조건부 엣지, interrupt, ToolNode, checkpointer, add_messages 등)에는 **왜 이렇게 쓰는지** 한국어 주석을 단다.
+- LangGraph 핵심 개념이 쓰이는 지점(조건부 엣지, input/output_schema, ToolNode, add_messages 등)에는 **왜 이렇게 쓰는지** 한국어 주석을 단다.
 - 프롬프트는 전부 `prompts.py`에 모은다. 노드 코드에 프롬프트 문자열을 흩어두지 않는다.
 - 설정값(모델명, k값, 최대 반복 등)은 `config.py`에서만 읽는다. 하드코딩 금지.
 - 타입힌트 필수. 로깅은 `logging` 표준 모듈 사용 (`print` 금지, 단 `scripts/`는 예외).
@@ -252,11 +248,11 @@ REQUIRES_APPROVAL: set[str] = {"save_note"}     # 승인 대상 툴 이름
 
 1. **뼈대**: `pyproject.toml`, `config.py`, `state.py`, `llm.py`, `.env.example`
 2. **최소 그래프**: `START → agent → respond → END` 로 단순 대화 동작 확인
-3. **체크포인터**: checkpointer 붙이기 (멀티턴 대화 기억용이 아니라 이후 HITL interrupt/resume을 위한 선행 작업)
+3. **체크포인터**: (현재는 불필요. 승인을 대화로 처리하므로 생략)
 4. **로컬 툴 + ReAct 루프**: `tools/local_tools.py`, `ToolNode`, agent ⇄ tools 루프
 5. **분류 노드**: `classify` + `routing.py` 조건부 엣지
 6. **RAG**: `rag/`, `retrieve` 노드, 출처 표시
-7. **HITL**: `approval` 노드, interrupt/resume 확인
+7. **HITL**: `approval` 노드, 승인 요청 → 예/아니오 대화 확인
 8. **에러 처리**: `error` 노드, 각 노드 예외 처리
 9. **테스트 + README**: 노드 단위 테스트, 라우팅 함수 테스트, 실행 방법 문서화
 
@@ -264,7 +260,7 @@ REQUIRES_APPROVAL: set[str] = {"save_note"}     # 승인 대상 툴 이름
 
 - [ ] `scripts/run_local.py`로 일반 대화 / 문서 질의 / 툴 사용 질의가 각각 의도한 경로로 흐른다
 - [ ] UI가 전체 대화 이력을 매 요청에 함께 보내면 그 이력을 그대로 이어받아 답한다 (서버는 턴 간 메모리를 따로 저장하지 않음)
-- [ ] `save_note` 호출 시 interrupt가 발생하고, 승인/거절 각각 정상 처리된다
+- [ ] `save_note` 호출 시 승인 요청 `answer`가 나오고, 다음 턴 예/아니오로 승인/거절이 각각 정상 처리된다
 - [ ] RAG 응답에 출처가 표시된다
 - [ ] 툴/노드 예외 발생 시 error 노드를 거쳐 안내 메시지로 종료된다
 - [ ] `pytest` 통과

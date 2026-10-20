@@ -33,3 +33,4 @@ graph.png
 .vscode/
 .DS_Store
 Thumbs.db
+data/saved_trips.json

@@ -1,15 +1,35 @@
-# agent 노드: 시스템 프롬프트 + (RAG면 검색 문서 컨텍스트) + 대화 이력으로 LLM을 호출한다.
-# 툴은 build_graph()에서 1회 로딩해 bind_tools로 묶어두고 재사용한다 (요청마다 다시 만들지 않음).
-# intent == "tool"일 때만 툴을 바인딩한 모델을 쓴다 (그 외에는 LLM이 괜히 툴을 부르지 않게).
+# agent 노드: 시스템 프롬프트 + 여행 상태 컨텍스트 + 대화 이력으로 LLM을 호출한다 (ReAct의 '추론' 부분).
+# 툴은 build_graph()에서 1회 bind_tools로 묶어 재사용한다. intent가 trip/qa일 때만 툴을 바인딩한 모델을 쓴다.
+# Tool 반복 횟수(tool_iterations)가 한도를 넘으면 LLM을 부르지 않고 error로 보낸다 (무한 루프 방지).
 
-from collections.abc import Callable
-from typing import Awaitable
+import json
+import logging
+from collections.abc import Awaitable, Callable
 
+from agent.clock import today_label
+from agent.config import settings
 from agent.llm import get_llm
-from agent.prompts import RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT
+from agent.prompts import RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
 from agent.state import AgentState
+from agent.trip_state import describe_event, describe_events, selected_event
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
+
+logger = logging.getLogger(__name__)
+
+
+def build_trip_context(state: AgentState) -> str:
+    event = selected_event(state)
+    return TRIP_CONTEXT_TEMPLATE.format(
+        today=today_label(),
+        trip_status=state.get("trip_status", "idle"),
+        preferences=json.dumps(state.get("trip_preferences", {}), ensure_ascii=False),
+        selected_event=describe_event(event) if event else "(없음)",
+        events=describe_events(state),
+        place_count=len(state.get("places") or []),
+        restaurant_count=len(state.get("restaurants") or []),
+        has_plan="있음" if state.get("trip_plan") else "없음",
+    )
 
 
 def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[AgentState], Awaitable[dict]]:
@@ -17,9 +37,15 @@ def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[AgentState
     llm_with_tools = llm.bind_tools(tools) if tools else llm
 
     async def agent_node(state: AgentState) -> dict:
-        model = llm_with_tools if state.get("intent") == "tool" else llm
+        if state.get("tool_iterations", 0) >= settings.agent_max_iterations:
+            return {"error": f"Tool 호출이 최대 {settings.agent_max_iterations}회를 넘어 중단했습니다."}
+
+        intent = state.get("intent")
+        model = llm_with_tools if intent in ("trip", "qa") else llm
 
         messages = [SystemMessage(content=SYSTEM_PROMPT)]
+        if intent in ("trip", "qa"):
+            messages.append(SystemMessage(content=build_trip_context(state)))
         docs = state.get("retrieved_docs") or []
         if docs:
             context = "\n\n".join(doc.page_content for doc in docs)
