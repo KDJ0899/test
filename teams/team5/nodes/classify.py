@@ -23,7 +23,7 @@ class IntentClassification(BaseModel):
 def make_classify_node() -> Callable[[MyState], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(IntentClassification)
 
-    def classify_node(state: MyState) -> dict:
+    async def classify_node(state: MyState) -> dict:
         user_message = HumanMessage(content=state["user_input"])
         # 호출자가 넘겨준 이전 messages 뒤에 이번 입력만 add_messages로 한 번 추가한다.
         # 턴 단위 값(intent/missing_fields/retrieved_docs/error/answer)은 여기서 초기화하고,
@@ -46,7 +46,7 @@ def make_classify_node() -> Callable[[MyState], Awaitable[dict]]:
         try:
             system = CLASSIFY_SYSTEM_PROMPT.format(trip_status=state.get("trip_status", "idle"))
             messages = [SystemMessage(content=system), *state.get("messages", []), user_message]
-            result = structured_llm.invoke(messages, config={"tags": ["internal"]})
+            result = await structured_llm.ainvoke(messages, config={"tags": ["internal"]})
         except Exception as exc:
             return {**reset, "intent": None, "error": str(exc)}
         return {**reset, "intent": result.intent, "needs_guide": result.needs_guide}

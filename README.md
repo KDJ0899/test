@@ -83,7 +83,7 @@ uv run pytest
 | 승인 | 이력 속 승인 요청 문구로 판정 | State의 `pending_approval`로 판정 |
 | 툴 | 범용 샘플 툴 | 경기/관광지/식당 검색, 일정 저장 (`calculate`, `search_items`, `save_note` 제거) |
 
-`build_graph()`와 `graph.invoke`로 호출하며, 결과는 `answer` 하나가 아니라 전체 State다 (`result["answer"]`로 답을 꺼내고, 결과 전체를 다음 요청에 되돌려 보낸다).
+`build_graph()`와 `await graph.ainvoke`로 호출하며 (LLM 노드가 async라 동기 `invoke`는 쓸 수 없다), 결과는 `answer` 하나가 아니라 전체 State다 (`result["answer"]`로 답을 꺼내고, 결과 전체를 다음 요청에 되돌려 보낸다).
 **이 저장소에서 FastAPI 코드는 수정하지 않았다.**
 
 ## 남은 제약

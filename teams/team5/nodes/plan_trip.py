@@ -76,7 +76,7 @@ def format_trip_plan(plan: dict, state: MyState) -> str:
 def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(TripPlanDraft)
 
-    def plan_trip_node(state: MyState) -> dict:
+    async def plan_trip_node(state: MyState) -> dict:
         event = selected_event(state)
         if not event:
             return {"error": "선택한 경기를 찾을 수 없어 일정을 만들 수 없습니다."}
@@ -99,7 +99,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
                     guide="\n".join(d.page_content for d in state.get("retrieved_docs") or []) or "(없음)",
                     feedback=feedback,
                 )
-                draft = structured_llm.invoke(
+                draft = await structured_llm.ainvoke(
                     [SystemMessage(content=system), *state["messages"]], config={"tags": ["internal"]}
                 )
                 plan = build_plan(draft, event, duration, state)

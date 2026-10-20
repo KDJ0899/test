@@ -1,6 +1,7 @@
 # workflow 그래프 조립. build_graph()가 툴 로딩, RAG 인덱싱, 노드/엣지 연결을 하고 컴파일된 그래프를 돌려준다.
-# 체크포인터 없이 컴파일한다. invoke가 돌려주는 전체 State(대화, 여행 조건, 후보, 일정, 승인 대기)를
+# 체크포인터 없이 컴파일한다. ainvoke가 돌려주는 전체 State(대화, 여행 조건, 후보, 일정, 승인 대기)를
 # 호출자가 보관했다가 다음 턴에 user_input과 함께 다시 넘기면 대화가 이어진다.
+# LLM을 부르는 노드(classify, extract_preferences, agent, plan_trip)는 async라서 그래프는 ainvoke로 호출해야 한다.
 
 from app.llm import get_embeddings
 from teams.team5.nodes.agent import make_agent_node
