@@ -34,3 +34,7 @@ graph.png
 .DS_Store
 Thumbs.db
 teams/team5/data/saved_trips.json
+
+# 테스트와 스크립트는 로컬에서만 관리한다
+tests/
+scripts/

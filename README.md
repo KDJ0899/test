@@ -17,8 +17,8 @@ uv sync
 uv run python scripts/run_local.py
 ```
 
-- 같은 그래프 인스턴스와 고정 `thread_id`로 호출하고, 첫 턴부터 `user_input`만 보낸다. 대화와 여행 상태는 `InMemorySaver`가 기억한다 (프로세스를 끝내면 사라짐).
-- CLI 명령: `state`(현재 State 요약), `reset`(새 thread_id로 새 대화), `exit`.
+- 체크포인터 없이, 스크립트가 `graph.invoke`가 돌려준 전체 State를 들고 있다가 다음 턴에 `user_input`과 함께 다시 넘긴다 (프로세스를 끝내면 사라짐).
+- CLI 명령: `state`(현재 State 요약), `reset`(State를 비우고 새 대화), `exit`.
 - 데모 대화 예시 (`TODAY_OVERRIDE = "2026-10-16"`):
 
 ```
@@ -52,7 +52,7 @@ agent ─ 승인 대상 Tool ─> request_approval -> END
 
 | 파일 | 역할 |
 |---|---|
-| `state.py` | `MyState`(대화 + 여행 상태), `InputState`, `OutputState` |
+| `state.py` | `MyState`(대화 + 여행 상태) |
 | `routing.py` | 조건부 엣지 함수 전부 |
 | `nodes/` | classify, extract_preferences, validate_preferences, ask_clarification, retrieve, agent, ingest_tool_results, plan_trip, approval(4개 노드), respond, error |
 | `trip_state.py`, `trip_validation.py` | State 파생 계산, 일정 검증(`validate_trip_plan`) |
@@ -78,12 +78,12 @@ uv run pytest
 
 | 항목 | CLAUDE.md (기존) | 이 구현 (명세서 0장) |
 |---|---|---|
-| 대화 이력 | UI가 `messages`로 매번 전달, 서버는 기억 안 함 | 로컬 `InMemorySaver` + 고정 `thread_id`, 첫 호출 이후 `user_input`만 전달 |
-| 체크포인터 | 불필요 | `build_graph()`가 기본으로 `InMemorySaver` 부착 |
+| 대화 이력 | UI가 `messages`로 매번 전달, 서버는 기억 안 함 | 호출자가 `invoke` 결과(전체 State)를 보관했다가 다음 턴에 `user_input`과 함께 다시 전달 |
+| 체크포인터 | 불필요 | 불필요 (체크포인터 없음) |
 | 승인 | 이력 속 승인 요청 문구로 판정 | State의 `pending_approval`로 판정 |
 | 툴 | 범용 샘플 툴 | 경기/관광지/식당 검색, 일정 저장 (`calculate`, `search_items`, `save_note` 제거) |
 
-`build_graph()`, `ainvoke`, `result["answer"]` 개념은 유지한다. 기존 FastAPI가 "매 요청에 전체 `messages`를 보내는" 방식이면 `thread_id`를 넘기도록 어댑터 수정이 필요하다.
+`build_graph()`와 `graph.invoke`로 호출하며, 결과는 `answer` 하나가 아니라 전체 State다 (`result["answer"]`로 답을 꺼내고, 결과 전체를 다음 요청에 되돌려 보낸다).
 **이 저장소에서 FastAPI 코드는 수정하지 않았다.**
 
 ## 남은 제약

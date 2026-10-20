@@ -1,6 +1,6 @@
 # 그래프 전체에서 공유되는 State 정의.
-# InMemorySaver 체크포인터가 thread_id 단위로 이 State를 턴 사이에 보존한다.
-# 대화(messages)와 여행 상태(trip_preferences, sports_events, trip_plan ...)는 유지하고,
+# 체크포인터가 없으므로 호출자가 invoke 결과(전체 State)를 들고 있다가 다음 턴 입력에 user_input과 함께 다시 넘긴다.
+# 대화(messages)와 여행 상태(trip_preferences, sports_events, trip_plan ...)는 그대로 이어지고,
 # 턴 단위 값(intent, missing_fields, retrieved_docs, error, answer)은 classify 노드가 매 턴 초기화한다.
 
 from typing import Annotated, Any, Literal
@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from langchain_core.documents import Document
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
 class TripPreferences(TypedDict, total=False):
@@ -23,12 +23,6 @@ class TripPreferences(TypedDict, total=False):
     transport: str  # public_transit / car / unspecified
     budget_krw: int
     interests: list[str]
-
-
-class InputState(TypedDict):
-    # 체크포인터를 쓰는 CLI에서는 첫 호출부터 user_input만 보낸다. messages는 초기화/호환성 용도.
-    user_input: str
-    messages: NotRequired[list[AnyMessage]]
 
 
 class MyState(TypedDict, total=False):
@@ -53,7 +47,3 @@ class MyState(TypedDict, total=False):
     error: str | None
     answer: str
 
-
-class OutputState(TypedDict):
-    # output_schema로 ainvoke 결과를 {"answer": str}로 제한한다. 체크포인터에는 내부 State 전체가 남는다.
-    answer: str

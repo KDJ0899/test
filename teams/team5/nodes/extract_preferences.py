@@ -75,14 +75,14 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
 def make_extract_preferences_node() -> Callable[[MyState], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(PreferenceUpdate)
 
-    async def extract_preferences_node(state: MyState) -> dict:
+    def extract_preferences_node(state: MyState) -> dict:
         system = EXTRACT_SYSTEM_PROMPT.format(
             today=today_label(),
             preferences=json.dumps(state.get("trip_preferences", {}), ensure_ascii=False),
             events=describe_events(state),
         )
         try:
-            update = await structured_llm.ainvoke(
+            update = structured_llm.invoke(
                 [SystemMessage(content=system), *state["messages"]], config={"tags": ["internal"]}
             )
             return apply_update(state, update)

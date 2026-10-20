@@ -8,7 +8,7 @@ from langchain_core.tools import BaseTool
 REQUIRES_APPROVAL: set[str] = set(config.APPROVAL_REQUIRED_TOOLS)
 
 
-async def load_tools() -> list[BaseTool]:
+def load_tools() -> list[BaseTool]:
     """build_graph()에서 1회 호출."""
     return list(LOCAL_TOOLS)
 

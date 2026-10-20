@@ -25,7 +25,7 @@ def find_missing_fields(state: MyState) -> list[str]:
     return missing
 
 
-async def validate_preferences_node(state: MyState) -> dict:
+def validate_preferences_node(state: MyState) -> dict:
     missing = find_missing_fields(state)
     # 값은 그대로 두고 단계(trip_status)만 갱신한다. 판단은 compute_trip_status에 모아 둔다.
     status = compute_trip_status({**state, "missing_fields": missing})

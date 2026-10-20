@@ -36,7 +36,7 @@ def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[MyState], 
     llm = get_llm()
     llm_with_tools = llm.bind_tools(tools) if tools else llm
 
-    async def agent_node(state: MyState) -> dict:
+    def agent_node(state: MyState) -> dict:
         if state.get("tool_iterations", 0) >= config.AGENT_MAX_ITERATIONS:
             return {"error": f"Tool 호출이 최대 {config.AGENT_MAX_ITERATIONS}회를 넘어 중단했습니다."}
 
@@ -53,7 +53,7 @@ def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[MyState], 
         messages.extend(state["messages"])
 
         try:
-            response = await model.ainvoke(messages)
+            response = model.invoke(messages)
         except Exception as exc:
             return {"error": str(exc)}
         return {"messages": [response]}

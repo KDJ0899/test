@@ -7,7 +7,7 @@ from teams.team5.state import MyState
 from langchain_core.messages import AIMessage, ToolMessage
 
 
-async def error_node(state: MyState) -> dict:
+def error_node(state: MyState) -> dict:
     messages = state.get("messages", [])
     answered = {m.tool_call_id for m in messages if isinstance(m, ToolMessage)}
     stubs = [

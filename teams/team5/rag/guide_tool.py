@@ -14,12 +14,12 @@ SOURCE = "local:docs"
 
 def make_search_guide_tool(vectorstore: VectorStore) -> BaseTool:
     @tool
-    async def search_guide_docs(query: str) -> str:
+    def search_guide_docs(query: str) -> str:
         """야구장 관람 준비물, 입장/관람 방법, 여행 일정 원칙, 대중교통 이용 같은 가이드 문서를 검색한다.
         일반 안내 질문에 답하거나 일정을 만들 때 참고 원칙이 필요하면 사용한다.
         실제 경기 일정은 이 툴이 아니라 search_sports_events로 확인해야 한다."""
         try:
-            docs = await retrieve_docs(vectorstore, query, config.RAG_TOP_K)
+            docs = retrieve_docs(vectorstore, query, config.RAG_TOP_K)
         except Exception as exc:
             return json.dumps({"status": "error", "source": SOURCE, "data": None, "error": f"문서 검색 실패: {exc}"}, ensure_ascii=False)
         items = [{"source": d.metadata.get("source", "unknown"), "content": d.page_content} for d in docs]

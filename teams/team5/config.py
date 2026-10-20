@@ -20,6 +20,3 @@ APPROVAL_REQUIRED_TOOLS: list[str] = ["save_trip_plan"]
 # 상대 날짜("다음 달", "이번 주")의 기준일. None이면 오늘. 데모/테스트에서 "YYYY-MM-DD"로 고정한다.
 # 샘플 경기가 2026-10~11월이므로 데모에서는 "2026-10-16" 등으로 고정하면 편하다.
 TODAY_OVERRIDE: str | None = None
-
-# 로컬 CLI의 고정 thread_id (InMemorySaver가 이 id로 State를 이어 준다)
-THREAD_ID: str = "local-demo"

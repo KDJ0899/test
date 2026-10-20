@@ -8,7 +8,7 @@
 - UI/FastAPI는 만들지 않음 (요청 범위 밖). `scripts/run_local.py`로 멀티턴 확인.
 
 ## 확정된 설계 결정 (사용자 지시)
-1. 상태 관리: `InMemorySaver` + 고정 `thread_id`, 입력은 `user_input`만. 명세서가 CLAUDE.md보다 우선. 서버 연동 설명과 차이는 README에 명시.
+1. 상태 관리: 체크포인터 없음. 호출자가 invoke 결과(전체 State)를 보관했다가 다음 턴에 `user_input`과 함께 다시 전달. 명세서가 CLAUDE.md보다 우선. 서버 연동 설명과 차이는 README에 명시.
 2. Tavily/웹 검색 완전 제거 (코드·설정·의존성·테스트·문서).
 3. 의도는 `chat / trip / qa` 3개. RAG는 별도 의도가 아니라 문서 검색 기능.
 4. 문서 검색은 하이브리드(C안):

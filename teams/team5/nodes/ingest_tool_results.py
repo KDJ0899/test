@@ -35,7 +35,7 @@ def _latest_tool_messages(state: MyState) -> list[ToolMessage]:
     return [m for m in messages[last_human + 1 :] if isinstance(m, ToolMessage)]
 
 
-async def ingest_tool_results_node(state: MyState) -> dict:
+def ingest_tool_results_node(state: MyState) -> dict:
     processed = list(state.get("processed_tool_call_ids", []))
     changes: dict = {}
     new_messages = [m for m in _latest_tool_messages(state) if m.tool_call_id not in processed]

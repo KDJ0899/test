@@ -5,12 +5,12 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import InMemoryVectorStore, VectorStore
 
 
-async def build_vectorstore(docs: list[Document], embeddings: Embeddings) -> VectorStore:
+def build_vectorstore(docs: list[Document], embeddings: Embeddings) -> VectorStore:
     """다른 벡터스토어로 바꾸려면 이 함수만 교체하면 된다."""
     store = InMemoryVectorStore(embeddings)
-    await store.aadd_documents(docs)
+    store.add_documents(docs)
     return store
 
 
-async def retrieve_docs(vectorstore: VectorStore, query: str, k: int) -> list[Document]:
-    return await vectorstore.asimilarity_search(query, k=k)
+def retrieve_docs(vectorstore: VectorStore, query: str, k: int) -> list[Document]:
+    return vectorstore.similarity_search(query, k=k)

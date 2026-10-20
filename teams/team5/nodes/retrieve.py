@@ -17,10 +17,10 @@ def build_plan_guide_query(state: MyState) -> str:
 
 
 def make_retrieve_node(vectorstore: VectorStore, for_plan: bool = False) -> Callable[[MyState], Awaitable[dict]]:
-    async def retrieve_node(state: MyState) -> dict:
+    def retrieve_node(state: MyState) -> dict:
         try:
             query = build_plan_guide_query(state) if for_plan else state["user_input"]
-            docs = await retrieve_docs(vectorstore, query, config.RAG_TOP_K)
+            docs = retrieve_docs(vectorstore, query, config.RAG_TOP_K)
         except Exception as exc:
             return {"error": str(exc)}
         existing = state.get("retrieved_docs") or []

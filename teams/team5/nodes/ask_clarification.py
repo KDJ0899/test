@@ -6,7 +6,7 @@ from teams.team5.state import MyState
 from langchain_core.messages import AIMessage
 
 
-async def ask_clarification_node(state: MyState) -> dict:
+def ask_clarification_node(state: MyState) -> dict:
     items = [f"- {MISSING_FIELD_QUESTIONS[f]}" for f in state.get("missing_fields", [])]
     if note := state.get("clarification_note"):
         items.insert(0, f"- {note}")
