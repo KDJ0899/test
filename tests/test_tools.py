@@ -2,16 +2,16 @@
 
 import json
 
-import agent.tools.local_tools as lt
-import agent.clock as clock
-from agent.tools.local_tools import (
+import teams.team5.tools.local_tools as lt
+import teams.team5.clock as clock
+from teams.team5.tools.local_tools import (
     get_current_datetime,
     save_trip_plan,
     search_places,
     search_restaurants,
     search_sports_events,
 )
-from agent.tools.registry import REQUIRES_APPROVAL, get_tool, load_tools
+from teams.team5.tools.registry import REQUIRES_APPROVAL, get_tool, load_tools
 
 
 def call(tool_obj, **kwargs) -> dict:
@@ -19,7 +19,7 @@ def call(tool_obj, **kwargs) -> dict:
 
 
 def test_datetime_uses_clock_override(monkeypatch):
-    monkeypatch.setattr(clock.settings, "today_override", "2026-10-16")
+    monkeypatch.setattr(clock.config, "TODAY_OVERRIDE", "2026-10-16")
     out = call(get_current_datetime)
     assert out["status"] == "ok" and out["data"]["today"] == "2026-10-16" and out["data"]["weekday"] == "금"
 

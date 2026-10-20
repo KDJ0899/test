@@ -2,16 +2,16 @@
 
 import json
 
-import agent.tools.local_tools as lt
+import teams.team5.tools.local_tools as lt
 import pytest
-from agent.graph import build_graph
-from agent.nodes.approval import (
+from teams.team5.workflow import build_graph
+from teams.team5.nodes.approval import (
     execute_approved_tool_node,
     is_affirmative,
     is_negative,
     resolve_approval_node,
 )
-from agent.nodes.extract_preferences import PreferenceUpdate
+from teams.team5.nodes.extract_preferences import PreferenceUpdate
 from langchain_core.messages import AIMessage
 from tests.conftest import tool_call_message
 from tests.test_multiturn import CONFIG, intents, run_until_completed, values

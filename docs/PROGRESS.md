@@ -25,14 +25,14 @@ agent -> (error | request_approval | tools | retrieve_for_plan | respond)
 tools -> ingest_tool_results -> agent
 retrieve_for_plan -> plan_trip -> respond
 resolve_approval -> (execute_approved_tool | respond | ask_approval_again)
-다이어그램: `docs/graph.mmd`, `docs/graph.png` (`scripts/draw_graph.py`로 재생성).
+다이어그램: `docs/graph.mmd`, `docs/graph.png` (`scripts/draw_workflow.py`로 재생성).
 
 ## 주요 파일
-- `src/agent/`: graph, routing, state, prompts, config, clock, trip_state, trip_validation
-- `src/agent/nodes/`: classify, extract_preferences, validate_preferences, ask_clarification, retrieve, agent, ingest_tool_results, plan_trip, approval, respond, error
-- `src/agent/tools/local_tools.py`: get_current_datetime, search_sports_events, search_places, search_restaurants, save_trip_plan
-- `src/agent/rag/`: loader, retriever, guide_tool
-- `data/`: sports_events.json(7, 가상), tourist_places.json(10), restaurants.json(8), docs/{baseball,travel,transport}_guide.md
+- `teams/team5/`: graph, routing, state, prompts, config, clock, trip_state, trip_validation
+- `teams/team5/nodes/`: classify, extract_preferences, validate_preferences, ask_clarification, retrieve, agent, ingest_tool_results, plan_trip, approval, respond, error
+- `teams/team5/tools/local_tools.py`: get_current_datetime, search_sports_events, search_places, search_restaurants, save_trip_plan
+- `teams/team5/rag/`: loader, retriever, guide_tool
+- `teams/team5/data/`: sports_events.json(7, 가상), tourist_places.json(10), restaurants.json(8), docs/{baseball,travel,transport}_guide.md
 - `tests/`: conftest(ScriptedLLM 등), test_tools/routing/preferences/nodes/multiturn/approval/trip_validation
 
 ## 알려진 위험 / 미검증
@@ -41,7 +41,7 @@ resolve_approval -> (execute_approved_tool | respond | ask_approval_again)
 - 실모델에서 구조화 출력(classify, extract, plan_trip) 안정성, 일정 검증 후 1회 재작성 동작 확인 필요.
 
 ## 다음 후보 (사용자 미요청)
-1. `.env`에 실제 모델/키 설정 후 `scripts/run_local.py`로 명세 11장 시나리오(T01~T14) 수동 검증, 프롬프트 튜닝
+1. `teams/team5/config.py`에 실제 모델/키 설정 후 `scripts/run_local.py`로 명세 11장 시나리오(T01~T14) 수동 검증, 프롬프트 튜닝
 2. 저장 일정 목록/불러오기 툴
 3. 영구 체크포인터(SQLite 등)
 4. 데이터 확장 (팀/구장/날짜)
@@ -49,5 +49,5 @@ resolve_approval -> (execute_approved_tool | respond | ask_approval_again)
 
 ## 작업 시 주의 (Windows)
 - Bash heredoc에 한글+따옴표 섞이면 파싱 실패 가능. 파일은 Write/Edit 도구 사용.
-- 사용자 소유 파일: `requirements*.txt`, `scripts/draw_graph.py`.
+- 사용자 소유 파일: `requirements*.txt`, `scripts/draw_workflow.py`.
 - git 커밋 안 함 (사용자 요청 시에만). 변경은 working tree에 있음.

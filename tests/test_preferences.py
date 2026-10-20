@@ -1,9 +1,9 @@
 # 여행 조건 병합/검증 테스트 (apply_update, find_missing_fields) + 조건 수집 멀티턴 (T04, T05).
 
-from agent.graph import build_graph
-from agent.nodes.classify import IntentClassification
-from agent.nodes.extract_preferences import PreferenceUpdate, apply_update
-from agent.nodes.validate_preferences import find_missing_fields
+from teams.team5.workflow import build_graph
+from teams.team5.nodes.classify import IntentClassification
+from teams.team5.nodes.extract_preferences import PreferenceUpdate, apply_update
+from teams.team5.nodes.validate_preferences import find_missing_fields
 from langchain_core.messages import AIMessage
 
 CONFIG = {"configurable": {"thread_id": "pref"}}

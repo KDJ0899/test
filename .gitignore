@@ -9,7 +9,7 @@ wheels/
 # Virtual environments
 .venv
 
-# Secrets (키 이름만 담긴 .env.example 은 커밋한다)
+# Secrets
 .env
 .env.*
 !.env.example
@@ -22,7 +22,7 @@ wheels/
 htmlcov/
 
 # Runtime data (save_note 가 쌓는 메모)
-data/notes.jsonl
+teams/team5/data/notes.jsonl
 
 # Local scratch / 생성물
 scratch_*
@@ -33,4 +33,4 @@ graph.png
 .vscode/
 .DS_Store
 Thumbs.db
-data/saved_trips.json
+teams/team5/data/saved_trips.json

@@ -3,11 +3,11 @@
 
 from datetime import date
 
-from agent.state import AgentState
-from agent.trip_state import compute_trip_status, selected_event
+from teams.team5.state import Mystate
+from teams.team5.trip_state import compute_trip_status, selected_event
 
 
-def find_missing_fields(state: AgentState) -> list[str]:
+def find_missing_fields(state: Mystate) -> list[str]:
     prefs = state.get("trip_preferences", {})
     missing = []
     if not prefs.get("team") and not selected_event(state):
@@ -25,7 +25,7 @@ def find_missing_fields(state: AgentState) -> list[str]:
     return missing
 
 
-async def validate_preferences_node(state: AgentState) -> dict:
+async def validate_preferences_node(state: Mystate) -> dict:
     missing = find_missing_fields(state)
     # 값은 그대로 두고 단계(trip_status)만 갱신한다. 판단은 compute_trip_status에 모아 둔다.
     status = compute_trip_status({**state, "missing_fields": missing})

@@ -2,8 +2,8 @@
 
 import copy
 
-from agent.nodes.plan_trip import PlanItemDraft, TripPlanDraft, make_plan_trip_node
-from agent.trip_validation import validate_trip_plan
+from teams.team5.nodes.plan_trip import PlanItemDraft, TripPlanDraft, make_plan_trip_node
+from teams.team5.trip_validation import validate_trip_plan
 
 EVENT = {"id": "e1", "start_at": "2026-11-14T14:00:00", "home_team": "롯데 자이언츠", "away_team": "LG 트윈스",
          "venue": "사직야구장", "city": "부산", "is_demo": True, "source_type": "sample"}
@@ -99,7 +99,7 @@ def _draft(overlap: bool) -> TripPlanDraft:
 
 
 def _node(monkeypatch, drafts):
-    import agent.nodes.plan_trip as mod
+    import teams.team5.nodes.plan_trip as mod
     from tests.conftest import ScriptedLLM
 
     llm = ScriptedLLM(drafts)

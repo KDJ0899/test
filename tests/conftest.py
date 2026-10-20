@@ -35,15 +35,15 @@ def tool_call_message(name: str, args: dict, call_id: str = "call-1") -> AIMessa
 @pytest.fixture
 def fake_llms(monkeypatch):
     """노드 모듈마다 get_llm을 가짜로 바꾼다. 반환값 dict의 각 ScriptedLLM에 responses를 채워 쓴다."""
-    import agent.nodes.agent as agent_mod
-    import agent.nodes.classify as classify_mod
+    import teams.team5.nodes.agent as agent_mod
+    import teams.team5.nodes.classify as classify_mod
 
     llms = {"classify": ScriptedLLM(), "agent": ScriptedLLM()}
     monkeypatch.setattr(classify_mod, "get_llm", lambda **kw: llms["classify"])
     monkeypatch.setattr(agent_mod, "get_llm", lambda **kw: llms["agent"])
     for name in ("extract", "plan"):
         try:
-            mod = __import__(f"agent.nodes.{'extract_preferences' if name == 'extract' else 'plan_trip'}", fromlist=["x"])
+            mod = __import__(f"teams.team5.nodes.{'extract_preferences' if name == 'extract' else 'plan_trip'}", fromlist=["x"])
         except ModuleNotFoundError:
             continue
         llms[name] = ScriptedLLM()
@@ -53,7 +53,7 @@ def fake_llms(monkeypatch):
 
 @pytest.fixture
 def fake_embeddings(monkeypatch):
-    import agent.graph as graph_mod
+    import teams.team5.workflow as graph_mod
 
     if hasattr(graph_mod, "get_embeddings"):
         monkeypatch.setattr(graph_mod, "get_embeddings", lambda: DeterministicFakeEmbedding(size=8))

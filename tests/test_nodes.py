@@ -2,10 +2,10 @@
 
 import json
 
-from agent.nodes.classify import IntentClassification, make_classify_node
-from agent.nodes.error import error_node
-from agent.nodes.ingest_tool_results import ingest_tool_results_node
-from agent.nodes.respond import respond_node
+from teams.team5.nodes.classify import IntentClassification, make_classify_node
+from teams.team5.nodes.error import error_node
+from teams.team5.nodes.ingest_tool_results import ingest_tool_results_node
+from teams.team5.nodes.respond import respond_node
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
@@ -85,8 +85,8 @@ async def test_respond_appends_rag_sources():
 
 
 async def test_ingest_guide_docs_for_any_intent_and_search_guide_tool_format(fake_embeddings):
-    from agent.rag.guide_tool import make_search_guide_tool
-    from agent.rag.retriever import build_vectorstore
+    from teams.team5.rag.guide_tool import make_search_guide_tool
+    from teams.team5.rag.retriever import build_vectorstore
     from langchain_core.embeddings import DeterministicFakeEmbedding
 
     store = await build_vectorstore([Document(page_content="준비물 안내", metadata={"source": "baseball_guide.md"})],
@@ -100,7 +100,7 @@ async def test_ingest_guide_docs_for_any_intent_and_search_guide_tool_format(fak
 
 
 async def test_retrieve_node_user_query_and_dedupes_with_existing_docs(monkeypatch):
-    import agent.nodes.retrieve as mod
+    import teams.team5.nodes.retrieve as mod
 
     seen = {}
 
@@ -115,7 +115,7 @@ async def test_retrieve_node_user_query_and_dedupes_with_existing_docs(monkeypat
 
 
 async def test_retrieve_for_plan_uses_fixed_query_from_transport(monkeypatch):
-    import agent.nodes.retrieve as mod
+    import teams.team5.nodes.retrieve as mod
 
     seen = {}
 
@@ -130,7 +130,7 @@ async def test_retrieve_for_plan_uses_fixed_query_from_transport(monkeypatch):
 
 
 async def test_retrieve_failure_goes_to_error(monkeypatch):
-    import agent.nodes.retrieve as mod
+    import teams.team5.nodes.retrieve as mod
 
     async def boom(*a, **kw):
         raise RuntimeError("store down")

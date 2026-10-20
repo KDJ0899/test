@@ -1,13 +1,13 @@
 # 멀티턴 State 관리 시나리오 테스트 (명세서 11장 T01~T08, T10, T14). 가짜 LLM 대본으로 그래프 전체를 끝까지 돌린다.
 # 각 턴 뒤 graph.aget_state(config)로 trip_preferences / sports_events / selected_event_id / trip_plan / pending_approval을 확인한다.
 
-import agent.nodes.agent as agent_mod
-import agent.tools.local_tools as lt
+import teams.team5.nodes.agent as agent_mod
+import teams.team5.tools.local_tools as lt
 import pytest
-from agent.graph import build_graph
-from agent.nodes.classify import IntentClassification
-from agent.nodes.extract_preferences import PreferenceUpdate
-from agent.nodes.plan_trip import PlanItemDraft, TripPlanDraft
+from teams.team5.workflow import build_graph
+from teams.team5.nodes.classify import IntentClassification
+from teams.team5.nodes.extract_preferences import PreferenceUpdate
+from teams.team5.nodes.plan_trip import PlanItemDraft, TripPlanDraft
 from tests.conftest import tool_call_message
 from langchain_core.messages import AIMessage
 
@@ -197,7 +197,7 @@ async def test_t14_new_thread_has_no_previous_trip_state(graph_and_llms):
 
 async def test_tool_loop_stops_at_max_iterations(graph_and_llms, monkeypatch):
     graph, llms = graph_and_llms
-    monkeypatch.setattr(agent_mod.settings, "agent_max_iterations", 2)
+    monkeypatch.setattr(agent_mod.config, "AGENT_MAX_ITERATIONS", 2)
     llms["classify"].responses += intents("qa")
     llms["agent"].responses += [tool_call_message("get_current_datetime", {}, f"c{i}") for i in range(5)]
     result = await graph.ainvoke({"user_input": "계속 시간 알려줘"}, CONFIG)

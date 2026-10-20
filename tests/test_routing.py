@@ -1,6 +1,6 @@
 # 조건부 엣지 함수 단위 테스트. State만 만들어 넣고 분기 결과를 확인한다.
 
-import agent.routing as r
+import teams.team5.routing as r
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 

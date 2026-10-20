@@ -6,19 +6,19 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 
-from agent.clock import today_label
-from agent.config import settings
-from agent.llm import get_llm
-from agent.prompts import RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
-from agent.state import AgentState
-from agent.trip_state import describe_event, describe_events, selected_event
+from teams.team5.clock import today_label
+from teams.team5 import config
+from teams.team5.llm import get_llm
+from teams.team5.prompts import RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
+from teams.team5.state import Mystate
+from teams.team5.trip_state import describe_event, describe_events, selected_event
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
 
 logger = logging.getLogger(__name__)
 
 
-def build_trip_context(state: AgentState) -> str:
+def build_trip_context(state: Mystate) -> str:
     event = selected_event(state)
     return TRIP_CONTEXT_TEMPLATE.format(
         today=today_label(),
@@ -32,13 +32,13 @@ def build_trip_context(state: AgentState) -> str:
     )
 
 
-def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[AgentState], Awaitable[dict]]:
+def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[Mystate], Awaitable[dict]]:
     llm = get_llm()
     llm_with_tools = llm.bind_tools(tools) if tools else llm
 
-    async def agent_node(state: AgentState) -> dict:
-        if state.get("tool_iterations", 0) >= settings.agent_max_iterations:
-            return {"error": f"Tool 호출이 최대 {settings.agent_max_iterations}회를 넘어 중단했습니다."}
+    async def agent_node(state: Mystate) -> dict:
+        if state.get("tool_iterations", 0) >= config.AGENT_MAX_ITERATIONS:
+            return {"error": f"Tool 호출이 최대 {config.AGENT_MAX_ITERATIONS}회를 넘어 중단했습니다."}
 
         intent = state.get("intent")
         model = llm_with_tools if intent in ("trip", "qa") else llm

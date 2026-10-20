@@ -5,9 +5,9 @@
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
-from agent.llm import get_llm
-from agent.prompts import CLASSIFY_SYSTEM_PROMPT
-from agent.state import AgentState
+from teams.team5.llm import get_llm
+from teams.team5.prompts import CLASSIFY_SYSTEM_PROMPT
+from teams.team5.state import Mystate
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
@@ -20,10 +20,10 @@ class IntentClassification(BaseModel):
     )
 
 
-def make_classify_node() -> Callable[[AgentState], Awaitable[dict]]:
+def make_classify_node() -> Callable[[Mystate], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(IntentClassification)
 
-    async def classify_node(state: AgentState) -> dict:
+    async def classify_node(state: Mystate) -> dict:
         user_message = HumanMessage(content=state["user_input"])
         # 체크포인터가 messages를 보존하므로 이번 입력만 add_messages로 한 번 추가한다.
         # 턴 단위 값(intent/missing_fields/retrieved_docs/error/answer)은 여기서 초기화하고,

@@ -6,8 +6,8 @@
 import json
 import logging
 
-from agent.state import AgentState
-from agent.trip_state import compute_trip_status, find_event
+from teams.team5.state import Mystate
+from teams.team5.trip_state import compute_trip_status, find_event
 from langchain_core.documents import Document
 from langchain_core.messages import ToolMessage
 
@@ -28,14 +28,14 @@ def _parse(message: ToolMessage) -> dict | None:
     return parsed if isinstance(parsed, dict) and parsed.get("status") == "ok" else None
 
 
-def _latest_tool_messages(state: AgentState) -> list[ToolMessage]:
+def _latest_tool_messages(state: Mystate) -> list[ToolMessage]:
     """마지막 사용자 메시지 이후의 ToolMessage (= 이번 턴에 새로 생긴 것)."""
     messages = state["messages"]
     last_human = max((i for i, m in enumerate(messages) if m.type == "human"), default=-1)
     return [m for m in messages[last_human + 1 :] if isinstance(m, ToolMessage)]
 
 
-async def ingest_tool_results_node(state: AgentState) -> dict:
+async def ingest_tool_results_node(state: Mystate) -> dict:
     processed = list(state.get("processed_tool_call_ids", []))
     changes: dict = {}
     new_messages = [m for m in _latest_tool_messages(state) if m.tool_call_id not in processed]

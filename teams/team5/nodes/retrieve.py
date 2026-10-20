@@ -4,23 +4,23 @@
 
 from collections.abc import Awaitable, Callable
 
-from agent.config import settings
-from agent.prompts import PLAN_GUIDE_QUERY_TEMPLATE, TRANSPORT_LABELS
-from agent.rag.retriever import retrieve_docs
-from agent.state import AgentState
+from teams.team5 import config
+from teams.team5.prompts import PLAN_GUIDE_QUERY_TEMPLATE, TRANSPORT_LABELS
+from teams.team5.rag.retriever import retrieve_docs
+from teams.team5.state import Mystate
 from langchain_core.vectorstores import VectorStore
 
 
-def build_plan_guide_query(state: AgentState) -> str:
+def build_plan_guide_query(state: Mystate) -> str:
     transport = state.get("trip_preferences", {}).get("transport", "unspecified")
     return PLAN_GUIDE_QUERY_TEMPLATE.format(transport=TRANSPORT_LABELS.get(transport, TRANSPORT_LABELS["unspecified"]))
 
 
-def make_retrieve_node(vectorstore: VectorStore, for_plan: bool = False) -> Callable[[AgentState], Awaitable[dict]]:
-    async def retrieve_node(state: AgentState) -> dict:
+def make_retrieve_node(vectorstore: VectorStore, for_plan: bool = False) -> Callable[[Mystate], Awaitable[dict]]:
+    async def retrieve_node(state: Mystate) -> dict:
         try:
             query = build_plan_guide_query(state) if for_plan else state["user_input"]
-            docs = await retrieve_docs(vectorstore, query, settings.rag_top_k)
+            docs = await retrieve_docs(vectorstore, query, config.RAG_TOP_K)
         except Exception as exc:
             return {"error": str(exc)}
         existing = state.get("retrieved_docs") or []

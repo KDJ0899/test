@@ -1,14 +1,14 @@
 """workflow 그래프 구조를 mermaid(.mmd)와 PNG로 저장한다. LLM/임베딩 호출 없이 구조만 그린다.
 
-사용법: uv run python scripts/draw_graph.py  ->  docs/graph.mmd, docs/graph.png
+사용법: uv run python scripts/draw_workflow.py  ->  docs/graph.mmd, docs/graph.png
 PNG는 mermaid.ink 서비스를 호출해 만든다(외부 접속 필요). 실패하면 .mmd만 저장된다.
 """
 
 import asyncio
 from pathlib import Path
 
-import agent.graph as graph_module
-from agent.config import settings
+import teams.team5.workflow as graph_module
+from teams.team5 import config
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "docs"
 
@@ -24,7 +24,7 @@ class _Stub:
 
 
 async def main() -> None:
-    settings.openai_api_key = settings.openai_api_key or "dummy"
+    config.OPENAI_API_KEY = config.OPENAI_API_KEY or "dummy"
     graph_module.get_llm = lambda **kw: _Stub()
     graph_module.get_embeddings = lambda: None
 
@@ -33,8 +33,8 @@ async def main() -> None:
 
     graph_module.build_vectorstore = _no_index
     # 노드 팩토리들이 모듈 안에서 get_llm을 직접 import하므로 해당 모듈에도 같은 대체를 적용한다.
-    import agent.nodes.agent as agent_node
-    import agent.nodes.classify as classify_node
+    import teams.team5.nodes.agent as agent_node
+    import teams.team5.nodes.classify as classify_node
 
     agent_node.get_llm = classify_node.get_llm = lambda **kw: _Stub()
 

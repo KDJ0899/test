@@ -6,16 +6,16 @@
 
 사용법: uv run python scripts/run_local.py
 명령:   state(현재 State 요약) / reset(새 thread_id로 새 대화) / exit, quit(종료)
-기준 날짜를 고정하려면 .env에 TODAY_OVERRIDE=2026-10-16 처럼 적는다 (샘플 경기 날짜가 2026-10~11월이다).
+기준 날짜를 고정하려면 teams/team5/config.py의 TODAY_OVERRIDE = "2026-10-16" 처럼 적는다 (샘플 경기 날짜가 2026-10~11월이다).
 """
 
 import asyncio
 import json
 import sys
 
-from agent.clock import today_label
-from agent.config import settings
-from agent.graph import build_graph
+from teams.team5.clock import today_label
+from teams.team5 import config
+from teams.team5.workflow import build_graph
 
 
 def _config(thread_id: str, recursion_limit: int) -> dict:
@@ -42,9 +42,9 @@ async def _print_state(graph, config: dict) -> None:
 async def main() -> None:
     graph = await build_graph()
     # Tool 반복 한도(agent_max_iterations)는 agent 노드가 직접 세고, recursion_limit은 노드 수 기준 안전망이다.
-    recursion_limit = settings.agent_max_iterations * 4 + 20
+    recursion_limit = config.AGENT_MAX_ITERATIONS * 4 + 20
     session = 1
-    thread_id = f"{settings.thread_id}-{session}"
+    thread_id = f"{config.THREAD_ID}-{session}"
 
     print(f"workflow 준비 완료. 기준 날짜: {today_label()} / thread_id: {thread_id}")
     print("명령: state, reset, exit")
@@ -59,7 +59,7 @@ async def main() -> None:
             break
         if query.lower() == "reset":
             session += 1
-            thread_id = f"{settings.thread_id}-{session}"  # 새 thread_id = 이전 여행 상태 없는 새 대화
+            thread_id = f"{config.THREAD_ID}-{session}"  # 새 thread_id = 이전 여행 상태 없는 새 대화
             print(f"새 대화를 시작합니다. (thread_id: {thread_id})")
             continue
         if query.lower() == "state":

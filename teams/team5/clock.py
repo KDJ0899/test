@@ -1,16 +1,16 @@
 # 기준 날짜를 한 곳에서 꺼내는 모듈. "다음 달", "이번 주" 같은 상대 날짜의 기준이 되며,
-# TODAY_OVERRIDE(.env)나 테스트의 monkeypatch로 고정할 수 있어 날짜 경계에서 테스트가 깨지지 않는다.
+# config.TODAY_OVERRIDE나 테스트의 monkeypatch로 고정할 수 있어 날짜 경계에서 테스트가 깨지지 않는다.
 
 from datetime import date, datetime
 
-from agent.config import settings
+from teams.team5 import config
 
 WEEKDAY_NAMES = ["월", "화", "수", "목", "금", "토", "일"]
 
 
 def today() -> date:
-    if settings.today_override:
-        return date.fromisoformat(settings.today_override)
+    if config.TODAY_OVERRIDE:
+        return date.fromisoformat(config.TODAY_OVERRIDE)
     return datetime.now().date()
 
 

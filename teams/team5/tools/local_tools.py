@@ -8,10 +8,10 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from agent.clock import WEEKDAY_NAMES, today
+from teams.team5.clock import WEEKDAY_NAMES, today
 from langchain_core.tools import tool
 
-DATA_DIR = Path(__file__).resolve().parents[3] / "data"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 EVENTS_PATH = DATA_DIR / "sports_events.json"
 PLACES_PATH = DATA_DIR / "tourist_places.json"
 RESTAURANTS_PATH = DATA_DIR / "restaurants.json"

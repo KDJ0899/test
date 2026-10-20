@@ -7,9 +7,8 @@
 
 ```bash
 uv sync
-cp .env.example .env
-# .env에 OPENAI_API_KEY / OPENAI_BASE_URL / LLM_MODEL / EMBEDDING_MODEL 을 채운다 (OpenAI 호환 API)
-# 샘플 경기가 2026-10~11월이므로 데모에서는 TODAY_OVERRIDE=2026-10-16 으로 기준 날짜를 고정한다
+# teams/team5/config.py 의 OPENAI_API_KEY / OPENAI_BASE_URL / LLM_MODEL / EMBEDDING_MODEL 을 직접 채운다 (OpenAI 호환 API)
+# 샘플 경기가 2026-10~11월이므로 데모에서는 config.py 의 TODAY_OVERRIDE = "2026-10-16" 으로 기준 날짜를 고정한다
 ```
 
 ## 실행 (멀티턴 CLI)
@@ -20,7 +19,7 @@ uv run python scripts/run_local.py
 
 - 같은 그래프 인스턴스와 고정 `thread_id`로 호출하고, 첫 턴부터 `user_input`만 보낸다. 대화와 여행 상태는 `InMemorySaver`가 기억한다 (프로세스를 끝내면 사라짐).
 - CLI 명령: `state`(현재 State 요약), `reset`(새 thread_id로 새 대화), `exit`.
-- 데모 대화 예시 (`TODAY_OVERRIDE=2026-10-16`):
+- 데모 대화 예시 (`TODAY_OVERRIDE = "2026-10-16"`):
 
 ```
 you> 롯데 경기 보고 여행 가고 싶어          -> 날짜 범위/여행 기간을 한 번에 질문
@@ -28,14 +27,14 @@ you> 다음 달 토요일 중 1박 2일               -> 팀 조건 유지 + 11�
 you> 두 번째 경기로                          -> event_id 선택, 관광지/식당 검색 후 일정 작성
 you> 차 없이 갈 거고 둘째 날 바다 관광 추가해 줘 -> 선택 경기 유지, 일정 수정
 you> 일정 저장해 줘                          -> [승인 요청] ...
-you> 승인                                    -> data/saved_trips.json 에 저장 (거절이면 저장 안 함)
+you> 승인                                    -> teams/team5/data/saved_trips.json 에 저장 (거절이면 저장 안 함)
 you> 야구장 준비물은?                        -> 가이드 문서 기반 답변 + 출처 표시
 you> 이번 주 롯데 경기만 알려줘              -> 여행 기간을 묻지 않고 경기만 조회
 ```
 
 ## Workflow
 
-그래프 도식은 [`docs/graph.mmd`](./docs/graph.mmd) (`uv run python scripts/draw_graph.py`로 재생성).
+그래프 도식은 [`docs/graph.mmd`](./docs/graph.mmd) (`uv run python scripts/draw_workflow.py`로 재생성).
 
 ```
 classify ─ trip ─> extract_preferences -> validate_preferences ─ 부족 ─> ask_clarification -> END
@@ -53,7 +52,7 @@ agent ─ 승인 대상 Tool ─> request_approval -> END
 
 | 파일 | 역할 |
 |---|---|
-| `state.py` | `AgentState`(대화 + 여행 상태), `InputState`, `OutputState` |
+| `state.py` | `Mystate`(대화 + 여행 상태), `InputState`, `OutputState` |
 | `routing.py` | 조건부 엣지 함수 전부 |
 | `nodes/` | classify, extract_preferences, validate_preferences, ask_clarification, retrieve, agent, ingest_tool_results, plan_trip, approval(4개 노드), respond, error |
 | `trip_state.py`, `trip_validation.py` | State 파생 계산, 일정 검증(`validate_trip_plan`) |
