@@ -31,7 +31,7 @@ class InputState(TypedDict):
     messages: NotRequired[list[AnyMessage]]
 
 
-class Mystate(TypedDict, total=False):
+class MyState(TypedDict, total=False):
     messages: Annotated[list[AnyMessage], add_messages]  # 대화 이력 (add_messages로 누적)
     user_input: str
     intent: Literal["chat", "trip", "qa"] | None

@@ -21,7 +21,7 @@ from teams.team5.prompts import (
     NO_PLAN_TO_SAVE_MESSAGE,
     SAVE_DONE_TEMPLATE,
 )
-from teams.team5.state import Mystate
+from teams.team5.state import MyState
 from teams.team5.tools.registry import REQUIRES_APPROVAL, get_tool
 from langchain_core.messages import AIMessage, ToolMessage
 
@@ -62,7 +62,7 @@ def _is_valid(pending: dict | None) -> bool:
     )
 
 
-async def request_approval_node(state: Mystate) -> dict:
+async def request_approval_node(state: MyState) -> dict:
     last_message = state["messages"][-1]
     calls = last_message.tool_calls
     # 응답 없는 tool_call이 이력에 남으면 다음 LLM 호출이 깨지므로, 이번 묶음 전체에 "실행 안 됨" ToolMessage를 채운다.
@@ -92,7 +92,7 @@ async def request_approval_node(state: Mystate) -> dict:
     }
 
 
-async def resolve_approval_node(state: Mystate) -> dict:
+async def resolve_approval_node(state: MyState) -> dict:
     pending = state.get("pending_approval")
     if not _is_valid(pending):
         # 깨졌거나 허용되지 않은 승인 정보는 실행하지 않고 버린다.
@@ -110,12 +110,12 @@ async def resolve_approval_node(state: Mystate) -> dict:
     return {"approval_decision": "unclear"}
 
 
-async def ask_approval_again_node(state: Mystate) -> dict:
+async def ask_approval_again_node(state: MyState) -> dict:
     answer = APPROVAL_AGAIN_TEMPLATE.format(request=format_request(state["pending_approval"]))
     return {"messages": [AIMessage(content=answer)], "answer": answer}
 
 
-async def execute_approved_tool_node(state: Mystate) -> dict:
+async def execute_approved_tool_node(state: MyState) -> dict:
     pending = state.get("pending_approval")
     tool = get_tool(pending["tool_name"]) if _is_valid(pending) else None
     if tool is None:

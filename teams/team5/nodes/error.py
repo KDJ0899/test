@@ -3,11 +3,11 @@
 # 응답 없는 tool_call에 실패 ToolMessage를 채워 이력을 정상 상태로 되돌린다.
 
 from teams.team5.prompts import ERROR_TEMPLATE
-from teams.team5.state import Mystate
+from teams.team5.state import MyState
 from langchain_core.messages import AIMessage, ToolMessage
 
 
-async def error_node(state: Mystate) -> dict:
+async def error_node(state: MyState) -> dict:
     messages = state.get("messages", [])
     answered = {m.tool_call_id for m in messages if isinstance(m, ToolMessage)}
     stubs = [

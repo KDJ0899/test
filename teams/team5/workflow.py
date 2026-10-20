@@ -2,7 +2,7 @@
 # 이 프로젝트는 CLAUDE.md의 원래 계약과 달리 InMemorySaver 체크포인터를 기본으로 붙인다 (스포츠 여행 명세서 0장):
 # 같은 thread_id로 ainvoke하면 State(대화, 여행 조건, 후보, 일정, 승인 대기)가 턴 사이에 유지된다.
 
-from teams.team5.llm import get_embeddings
+from app.llm import get_embeddings
 from teams.team5.nodes.agent import make_agent_node
 from teams.team5.nodes.approval import (
     ask_approval_again_node,
@@ -35,7 +35,7 @@ from teams.team5.routing import (
     route_after_tools,
     route_after_validate,
 )
-from teams.team5.state import Mystate, InputState, OutputState
+from teams.team5.state import MyState, InputState, OutputState
 from teams.team5.tools.registry import load_tools
 from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -49,7 +49,7 @@ def _make_tools_node(tools: list[BaseTool]):
     """ToolNode를 감싸서 예외를 그대로 던지지 않고 {"error": ...}로 바꿔준다 (개별 툴 실패는 ToolNode가 이미 ToolMessage로 처리함)."""
     tool_node = ToolNode(tools)
 
-    async def tools_node(state: Mystate) -> dict:
+    async def tools_node(state: MyState) -> dict:
         try:
             return await tool_node.ainvoke(state)
         except Exception as exc:
@@ -67,7 +67,7 @@ async def build_graph(checkpointer: BaseCheckpointSaver | None = None) -> Compil
 
     # input_schema: 호출자는 {"user_input": 이번 입력}만 보내면 된다 (이후 턴의 이력은 체크포인터가 들고 있다).
     # output_schema: ainvoke 결과를 {"answer": str}로 제한한다. 내부 State는 graph.get_state()로 확인한다.
-    graph = StateGraph(Mystate, input_schema=InputState, output_schema=OutputState)
+    graph = StateGraph(MyState, input_schema=InputState, output_schema=OutputState)
 
     graph.add_node("classify", make_classify_node())
     graph.add_node("extract_preferences", make_extract_preferences_node())

@@ -7,17 +7,17 @@ from collections.abc import Awaitable, Callable
 from teams.team5 import config
 from teams.team5.prompts import PLAN_GUIDE_QUERY_TEMPLATE, TRANSPORT_LABELS
 from teams.team5.rag.retriever import retrieve_docs
-from teams.team5.state import Mystate
+from teams.team5.state import MyState
 from langchain_core.vectorstores import VectorStore
 
 
-def build_plan_guide_query(state: Mystate) -> str:
+def build_plan_guide_query(state: MyState) -> str:
     transport = state.get("trip_preferences", {}).get("transport", "unspecified")
     return PLAN_GUIDE_QUERY_TEMPLATE.format(transport=TRANSPORT_LABELS.get(transport, TRANSPORT_LABELS["unspecified"]))
 
 
-def make_retrieve_node(vectorstore: VectorStore, for_plan: bool = False) -> Callable[[Mystate], Awaitable[dict]]:
-    async def retrieve_node(state: Mystate) -> dict:
+def make_retrieve_node(vectorstore: VectorStore, for_plan: bool = False) -> Callable[[MyState], Awaitable[dict]]:
+    async def retrieve_node(state: MyState) -> dict:
         try:
             query = build_plan_guide_query(state) if for_plan else state["user_input"]
             docs = await retrieve_docs(vectorstore, query, config.RAG_TOP_K)

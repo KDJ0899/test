@@ -6,9 +6,9 @@ import json
 from collections.abc import Awaitable, Callable
 
 from teams.team5.clock import today_label
-from teams.team5.llm import get_llm
+from app.llm import get_llm
 from teams.team5.prompts import EXTRACT_SYSTEM_PROMPT
-from teams.team5.state import Mystate, TripPreferences
+from teams.team5.state import MyState, TripPreferences
 from teams.team5.trip_state import describe_events, find_event
 from langchain_core.messages import SystemMessage
 from pydantic import BaseModel, Field
@@ -35,7 +35,7 @@ class PreferenceUpdate(BaseModel):
     clarification_note: str | None = None
 
 
-def apply_update(state: Mystate, update: PreferenceUpdate) -> dict:
+def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     """PreferenceUpdate를 기존 State에 병합한 State 변경분을 반환한다 (순수 함수)."""
     old: TripPreferences = state.get("trip_preferences", {})
     new: TripPreferences = {"sport_type": "baseball", **old}
@@ -72,10 +72,10 @@ def apply_update(state: Mystate, update: PreferenceUpdate) -> dict:
     return changes
 
 
-def make_extract_preferences_node() -> Callable[[Mystate], Awaitable[dict]]:
+def make_extract_preferences_node() -> Callable[[MyState], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(PreferenceUpdate)
 
-    async def extract_preferences_node(state: Mystate) -> dict:
+    async def extract_preferences_node(state: MyState) -> dict:
         system = EXTRACT_SYSTEM_PROMPT.format(
             today=today_label(),
             preferences=json.dumps(state.get("trip_preferences", {}), ensure_ascii=False),

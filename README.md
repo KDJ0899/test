@@ -52,7 +52,7 @@ agent ─ 승인 대상 Tool ─> request_approval -> END
 
 | 파일 | 역할 |
 |---|---|
-| `state.py` | `Mystate`(대화 + 여행 상태), `InputState`, `OutputState` |
+| `state.py` | `MyState`(대화 + 여행 상태), `InputState`, `OutputState` |
 | `routing.py` | 조건부 엣지 함수 전부 |
 | `nodes/` | classify, extract_preferences, validate_preferences, ask_clarification, retrieve, agent, ingest_tool_results, plan_trip, approval(4개 노드), respond, error |
 | `trip_state.py`, `trip_validation.py` | State 파생 계산, 일정 검증(`validate_trip_plan`) |

@@ -2,11 +2,11 @@
 # extract가 날짜 모호/모순을 발견해 clarification_note를 남겼다면 그 질문을 함께 보여준다.
 
 from teams.team5.prompts import CLARIFICATION_TEMPLATE, MISSING_FIELD_QUESTIONS
-from teams.team5.state import Mystate
+from teams.team5.state import MyState
 from langchain_core.messages import AIMessage
 
 
-async def ask_clarification_node(state: Mystate) -> dict:
+async def ask_clarification_node(state: MyState) -> dict:
     items = [f"- {MISSING_FIELD_QUESTIONS[f]}" for f in state.get("missing_fields", [])]
     if note := state.get("clarification_note"):
         items.insert(0, f"- {note}")

@@ -4,18 +4,18 @@
 
 from typing import Literal
 
-from teams.team5.state import Mystate
+from teams.team5.state import MyState
 from teams.team5.tools.registry import REQUIRES_APPROVAL
 from langchain_core.messages import AIMessage
 
 
-def _tool_calls(state: Mystate) -> list[dict]:
+def _tool_calls(state: MyState) -> list[dict]:
     last_message = state["messages"][-1]
     return getattr(last_message, "tool_calls", None) or []
 
 
 def route_after_classify(
-    state: Mystate,
+    state: MyState,
 ) -> Literal["error", "resolve_approval", "extract_preferences", "retrieve", "agent"]:
     """error면 error로. 승인 대기가 있으면 의도 분류보다 승인 처리를 우선한다. trip은 조건 수집으로, 가이드가 필요한 질문은 retrieve로, 나머지는 agent로 간다."""
     if state.get("error"):
@@ -30,11 +30,11 @@ def route_after_classify(
     return "agent"  # 그 외 chat / qa
 
 
-def route_after_extract(state: Mystate) -> Literal["error", "validate_preferences"]:
+def route_after_extract(state: MyState) -> Literal["error", "validate_preferences"]:
     return "error" if state.get("error") else "validate_preferences"
 
 
-def route_after_validate(state: Mystate) -> Literal["ask_clarification", "agent"]:
+def route_after_validate(state: MyState) -> Literal["ask_clarification", "agent"]:
     """필수 조건이 부족하거나 확인 질문이 필요하면 질문하고 턴을 끝내고, 충분하면 agent로 간다."""
     if state.get("missing_fields") or state.get("clarification_note"):
         return "ask_clarification"
@@ -42,7 +42,7 @@ def route_after_validate(state: Mystate) -> Literal["ask_clarification", "agent"
 
 
 def route_after_agent(
-    state: Mystate,
+    state: MyState,
 ) -> Literal["error", "request_approval", "tools", "retrieve_for_plan", "respond"]:
     """tool_calls가 있으면 승인 대상 여부로 request_approval / tools를 고르고, 없으면 일정 작성 단계인지 보고 retrieve_for_plan(가이드 검색 후 plan_trip) / respond."""
     if state.get("error"):
@@ -58,28 +58,28 @@ def route_after_agent(
     return "respond"
 
 
-def route_after_retrieve(state: Mystate) -> Literal["error", "agent"]:
+def route_after_retrieve(state: MyState) -> Literal["error", "agent"]:
     return "error" if state.get("error") else "agent"
 
 
-def route_after_retrieve_for_plan(state: Mystate) -> Literal["error", "plan_trip"]:
+def route_after_retrieve_for_plan(state: MyState) -> Literal["error", "plan_trip"]:
     return "error" if state.get("error") else "plan_trip"
 
 
-def route_after_tools(state: Mystate) -> Literal["error", "ingest_tool_results"]:
+def route_after_tools(state: MyState) -> Literal["error", "ingest_tool_results"]:
     return "error" if state.get("error") else "ingest_tool_results"
 
 
-def route_after_ingest(state: Mystate) -> Literal["error", "agent"]:
+def route_after_ingest(state: MyState) -> Literal["error", "agent"]:
     return "error" if state.get("error") else "agent"
 
 
-def route_after_plan_trip(state: Mystate) -> Literal["error", "respond"]:
+def route_after_plan_trip(state: MyState) -> Literal["error", "respond"]:
     return "error" if state.get("error") else "respond"
 
 
 def route_after_resolve_approval(
-    state: Mystate,
+    state: MyState,
 ) -> Literal["execute_approved_tool", "respond", "ask_approval_again"]:
     """승인이면 저장된 인자로 실행, 거절이면 실행 없이 응답, 승인/거절이 불분명하면 다시 묻는다."""
     decision = state.get("approval_decision")
@@ -90,7 +90,7 @@ def route_after_resolve_approval(
     return "ask_approval_again"
 
 
-def route_after_execute(state: Mystate) -> Literal["error", "ingest_tool_results", "respond"]:
+def route_after_execute(state: MyState) -> Literal["error", "ingest_tool_results", "respond"]:
     """승인 실행 결과가 곧 최종 답이면(마지막이 tool_calls 없는 AI 메시지, 예: 저장 완료) respond, 아니면 ingest -> agent."""
     if state.get("error"):
         return "error"

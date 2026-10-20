@@ -5,9 +5,9 @@
 import json
 from collections.abc import Awaitable, Callable
 
-from teams.team5.llm import get_llm
+from app.llm import get_llm
 from teams.team5.prompts import PLAN_INVALID_TEMPLATE, PLAN_NOTICE, PLAN_RETRY_FEEDBACK, PLAN_SYSTEM_PROMPT
-from teams.team5.state import Mystate
+from teams.team5.state import MyState
 from teams.team5.trip_state import describe_event, selected_event
 from teams.team5.trip_validation import validate_trip_plan
 from langchain_core.messages import AIMessage, SystemMessage
@@ -31,7 +31,7 @@ class TripPlanDraft(BaseModel):
     notes: str = ""
 
 
-def build_plan(draft: TripPlanDraft, event: dict, duration_days: int, state: Mystate) -> dict:
+def build_plan(draft: TripPlanDraft, event: dict, duration_days: int, state: MyState) -> dict:
     """LLM 초안에 출처 정보를 코드로 덧붙여 최종 plan dict를 만든다 (출처는 LLM이 쓰지 않는다)."""
     catalog = {p["id"]: p for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
     used = {i.place_id for i in draft.items if i.place_id in catalog}
@@ -52,7 +52,7 @@ def _source(record: dict) -> dict:
             "source_url": record.get("source_url"), "verified_at": record.get("verified_at")}
 
 
-def format_trip_plan(plan: dict, state: Mystate) -> str:
+def format_trip_plan(plan: dict, state: MyState) -> str:
     """plan dict를 사용자에게 보여줄 텍스트로 바꾼다 (LLM 없음). 장소 이름은 검색 캐시에서 찾는다."""
     catalog = {p["id"]: p["name"] for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
     lines = [f"## {plan['title']}"]
@@ -73,10 +73,10 @@ def format_trip_plan(plan: dict, state: Mystate) -> str:
     return "\n".join(lines)
 
 
-def make_plan_trip_node() -> Callable[[Mystate], Awaitable[dict]]:
+def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(TripPlanDraft)
 
-    async def plan_trip_node(state: Mystate) -> dict:
+    async def plan_trip_node(state: MyState) -> dict:
         event = selected_event(state)
         if not event:
             return {"error": "선택한 경기를 찾을 수 없어 일정을 만들 수 없습니다."}

@@ -8,9 +8,9 @@ from collections.abc import Awaitable, Callable
 
 from teams.team5.clock import today_label
 from teams.team5 import config
-from teams.team5.llm import get_llm
+from app.llm import get_llm
 from teams.team5.prompts import RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
-from teams.team5.state import Mystate
+from teams.team5.state import MyState
 from teams.team5.trip_state import describe_event, describe_events, selected_event
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
@@ -18,7 +18,7 @@ from langchain_core.tools import BaseTool
 logger = logging.getLogger(__name__)
 
 
-def build_trip_context(state: Mystate) -> str:
+def build_trip_context(state: MyState) -> str:
     event = selected_event(state)
     return TRIP_CONTEXT_TEMPLATE.format(
         today=today_label(),
@@ -32,11 +32,11 @@ def build_trip_context(state: Mystate) -> str:
     )
 
 
-def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[Mystate], Awaitable[dict]]:
+def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[MyState], Awaitable[dict]]:
     llm = get_llm()
     llm_with_tools = llm.bind_tools(tools) if tools else llm
 
-    async def agent_node(state: Mystate) -> dict:
+    async def agent_node(state: MyState) -> dict:
         if state.get("tool_iterations", 0) >= config.AGENT_MAX_ITERATIONS:
             return {"error": f"Tool 호출이 최대 {config.AGENT_MAX_ITERATIONS}회를 넘어 중단했습니다."}
 
