@@ -17,6 +17,7 @@ def validate_trip_plan(
     selected_event: dict | None,
     duration_days: int | None = None,
     known_place_ids: set[str] | None = None,
+    start_date: date | None = None,
 ) -> list[str]:
     errors: list[str] = []
     if not selected_event:
@@ -24,7 +25,10 @@ def validate_trip_plan(
 
     items = plan.get("items") or []
     event_start = _parse(selected_event["start_at"])
-    event_date: date = event_start.date()  # 경기일을 Day 1로 본다.
+    event_date: date = event_start.date()
+    first_date: date = start_date or event_date  # 여행 시작일이 따로 없으면 경기일을 Day 1로 본다.
+    if duration_days and not (0 <= (event_date - first_date).days < duration_days):
+        errors.append(f"경기일({event_date})이 여행 기간({first_date}부터 {duration_days}일)에 들어가지 않는다.")
 
     # 선택 경기 누락 / 경기 시작 시각 불일치
     event_items = [i for i in items if i.get("event_id") == selected_event["id"]]
@@ -46,8 +50,8 @@ def validate_trip_plan(
         day = item.get("day")
         if duration_days and not (isinstance(day, int) and 1 <= day <= duration_days):
             errors.append(f"'{name}'의 day({day})가 여행 기간(1~{duration_days}일)을 벗어났다.")
-        elif isinstance(day, int) and start.date() != event_date + timedelta(days=day - 1):
-            errors.append(f"'{name}'의 날짜({start.date()})가 Day {day}와 맞지 않는다. Day 1은 경기일({event_date})이다.")
+        elif isinstance(day, int) and start.date() != first_date + timedelta(days=day - 1):
+            errors.append(f"'{name}'의 날짜({start.date()})가 Day {day}와 맞지 않는다. Day 1은 {first_date}이다.")
         parsed.append((start, end, item))
 
     # 같은 날 항목끼리 시간이 겹치면 충돌

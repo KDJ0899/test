@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from app.llm import get_llm
 from teams.team5.prompts import PLAN_INVALID_TEMPLATE, PLAN_NOTICE, PLAN_RETRY_FEEDBACK, PLAN_SYSTEM_PROMPT
 from teams.team5.state import MyState
-from teams.team5.trip_state import describe_event, selected_event
+from teams.team5.trip_state import describe_event, selected_event, trip_start_date
 from teams.team5.trip_validation import validate_trip_plan
 from langchain_core.messages import AIMessage, SystemMessage
 from pydantic import BaseModel
@@ -82,6 +82,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
             return {"error": "선택한 경기를 찾을 수 없어 일정을 만들 수 없습니다."}
         prefs = state.get("trip_preferences", {})
         duration = prefs.get("duration_days") or 2
+        start_date = trip_start_date(event, prefs)  # 경기 전후 날짜를 포함한 여행 기간이면 그 시작일이 Day 1
         known_ids = {p["id"] for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
 
         errors: list[str] = []
@@ -91,7 +92,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
                 system = PLAN_SYSTEM_PROMPT.format(
                     event_start=event["start_at"],
                     duration_days=duration,
-                    first_date=event["start_at"][:10],
+                    first_date=start_date.isoformat(),
                     preferences=json.dumps(prefs, ensure_ascii=False),
                     event=json.dumps(event, ensure_ascii=False),
                     places=json.dumps(state.get("places") or [], ensure_ascii=False),
@@ -103,7 +104,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
                     [SystemMessage(content=system), *state["messages"]], config={"tags": ["internal"]}
                 )
                 plan = build_plan(draft, event, duration, state)
-                errors = validate_trip_plan(plan, event, duration, known_ids)
+                errors = validate_trip_plan(plan, event, duration, known_ids, start_date)
                 if not errors:
                     answer = format_trip_plan(plan, state)
                     return {

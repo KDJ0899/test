@@ -3,13 +3,14 @@
 # 검색 조건(팀/날짜/요일)이 바뀌면 경기 후보·선택·일정을 무효화하고, 부가 조건만 바뀌면 선택 경기는 유지한 채 일정만 다시 만든다.
 
 import json
+from datetime import date
 from collections.abc import Awaitable, Callable
 
 from teams.team5.clock import today_label
 from app.llm import get_llm
 from teams.team5.prompts import EXTRACT_SYSTEM_PROMPT
 from teams.team5.state import MyState, TripPreferences
-from teams.team5.trip_state import describe_events, find_event
+from teams.team5.trip_state import date_span_days, describe_events, find_event, selected_event
 from langchain_core.messages import SystemMessage
 from pydantic import BaseModel, Field
 
@@ -35,6 +36,18 @@ class PreferenceUpdate(BaseModel):
     clarification_note: str | None = None
 
 
+MAX_TRIP_DAYS = 14
+
+
+def _event_in_range(state: MyState, prefs: TripPreferences) -> bool:
+    """선택한 경기일이 새 날짜 범위 안인가. 경기 시각을 모르거나 범위가 이상하면 False (기존대로 검색 조건 변경으로 처리)."""
+    event = selected_event(state)
+    try:
+        return date.fromisoformat(prefs["date_from"]) <= date.fromisoformat(event["start_at"][:10]) <= date.fromisoformat(prefs["date_to"])
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     """PreferenceUpdate를 기존 State에 병합한 State 변경분을 반환한다 (순수 함수)."""
     old: TripPreferences = state.get("trip_preferences", {})
@@ -51,7 +64,16 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
 
     changes: dict = {"trip_preferences": new, "clarification_note": update.clarification_note}
 
-    if any(new.get(k) != old.get(k) for k in SEARCH_KEYS):
+    changed = {k for k in SEARCH_KEYS if new.get(k) != old.get(k)}
+    if changed and changed <= {"date_from", "date_to"} and _event_in_range(state, new):
+        # 경기를 고른 뒤 날짜만 말하면 검색 범위가 아니라 "여행 기간"으로 본다: 고른 경기와 후보는 유지하고 일정만 다시 만든다.
+        changes["trip_plan"] = None
+        span = date_span_days(new)
+        if not update.duration_days and span and span <= MAX_TRIP_DAYS:
+            new["duration_days"] = span  # 기간을 따로 말하지 않았으면 날짜 범위에서 계산한다.
+        return changes
+
+    if changed:
         # 검색 조건 변경: 후보/선택/계획/장소 캐시를 모두 무효화한다.
         changes.update(sports_events=[], selected_event_id=None, trip_plan=None, places=[], restaurants=[])
         return changes

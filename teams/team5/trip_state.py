@@ -1,6 +1,8 @@
 # State에서 파생되는 값을 계산하는 작은 순수 함수 모음 (LLM 호출 없음).
 # 여러 노드(validate_preferences, ingest_tool_results, agent, plan_trip)가 같은 기준으로 단계/선택 경기를 판단하도록 모아 둔다.
 
+from datetime import date
+
 from teams.team5.state import MyState
 
 
@@ -13,6 +15,26 @@ def find_event(state: MyState, event_id: str | None) -> dict | None:
 
 def selected_event(state: MyState) -> dict | None:
     return find_event(state, state.get("selected_event_id"))
+
+
+def date_span_days(prefs: dict) -> int | None:
+    """date_from~date_to가 유효하면 양끝 포함 일수를 돌려준다."""
+    try:
+        return (date.fromisoformat(prefs["date_to"]) - date.fromisoformat(prefs["date_from"])).days + 1
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def trip_start_date(event: dict, prefs: dict) -> date:
+    """일정 Day 1의 날짜. 날짜 범위가 여행 기간(범위 일수 == duration_days)이고 경기일을 포함하면 범위 시작일,
+    아니면(검색용 넓은 범위) 경기일을 Day 1로 본다."""
+    event_date = date.fromisoformat(event["start_at"][:10])
+    span = date_span_days(prefs)
+    if span and span == prefs.get("duration_days"):
+        start = date.fromisoformat(prefs["date_from"])
+        if start <= event_date <= start.fromordinal(start.toordinal() + span - 1):
+            return start
+    return event_date
 
 
 def compute_trip_status(state: MyState) -> str:

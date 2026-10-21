@@ -48,9 +48,9 @@ def _make_tools_node(tools: list[BaseTool]):
     """ToolNode를 감싸서 예외를 그대로 던지지 않고 {"error": ...}로 바꿔준다 (개별 툴 실패는 ToolNode가 이미 ToolMessage로 처리함)."""
     tool_node = ToolNode(tools)
 
-    def tools_node(state: MyState) -> dict:
+    async def tools_node(state: MyState) -> dict:
         try:
-            return tool_node.invoke(state)
+            return await tool_node.ainvoke(state)
         except Exception as exc:
             return {"error": str(exc)}
 

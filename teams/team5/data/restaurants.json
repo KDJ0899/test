@@ -116,5 +116,434 @@
     "source_url": null,
     "verified_at": null,
     "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-seolleongtang",
+    "id": "rest-seolleongtang",
+    "name": "설렁탕 샘플집",
+    "city": "서울",
+    "cuisine": "설렁탕",
+    "address": "서울 (샘플 주소)",
+    "estimated_duration_min": 60,
+    "nearby_venues": [
+      "잠실야구장"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-tteokbokki",
+    "id": "rest-tteokbokki",
+    "name": "떡볶이 샘플집",
+    "city": "서울",
+    "cuisine": "분식",
+    "address": "서울 (샘플 주소)",
+    "estimated_duration_min": 45,
+    "nearby_venues": [
+      "잠실야구장"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-gopchang",
+    "id": "rest-gopchang",
+    "name": "곱창 샘플집",
+    "city": "서울",
+    "cuisine": "곱창",
+    "address": "서울 (샘플 주소)",
+    "estimated_duration_min": 80,
+    "nearby_venues": [
+      "고척스카이돔"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-naengmyeon",
+    "id": "rest-naengmyeon",
+    "name": "냉면 샘플집",
+    "city": "서울",
+    "cuisine": "냉면",
+    "address": "서울 (샘플 주소)",
+    "estimated_duration_min": 60,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-chimaek",
+    "id": "rest-chimaek",
+    "name": "치킨 샘플집",
+    "city": "서울",
+    "cuisine": "치킨",
+    "address": "서울 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [
+      "잠실야구장",
+      "고척스카이돔"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-jjajang",
+    "id": "rest-jjajang",
+    "name": "짜장면 샘플집",
+    "city": "인천",
+    "cuisine": "중식",
+    "address": "인천 (샘플 주소)",
+    "estimated_duration_min": 60,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-naengmyeon-ic",
+    "id": "rest-naengmyeon-ic",
+    "name": "쫄면 샘플집",
+    "city": "인천",
+    "cuisine": "분식",
+    "address": "인천 (샘플 주소)",
+    "estimated_duration_min": 45,
+    "nearby_venues": [
+      "SSG랜더스필드"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-seafood-ic",
+    "id": "rest-seafood-ic",
+    "name": "조개구이 샘플집",
+    "city": "인천",
+    "cuisine": "해산물",
+    "address": "인천 (샘플 주소)",
+    "estimated_duration_min": 90,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-chimaek-ic",
+    "id": "rest-chimaek-ic",
+    "name": "치킨 샘플집",
+    "city": "인천",
+    "cuisine": "치킨",
+    "address": "인천 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [
+      "SSG랜더스필드"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-galbi",
+    "id": "rest-galbi",
+    "name": "수원갈비 샘플집",
+    "city": "수원",
+    "cuisine": "갈비",
+    "address": "수원 (샘플 주소)",
+    "estimated_duration_min": 90,
+    "nearby_venues": [
+      "KT위즈파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-tongdak",
+    "id": "rest-tongdak",
+    "name": "통닭 샘플집",
+    "city": "수원",
+    "cuisine": "치킨",
+    "address": "수원 (샘플 주소)",
+    "estimated_duration_min": 60,
+    "nearby_venues": [
+      "KT위즈파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-kalguksu",
+    "id": "rest-kalguksu",
+    "name": "칼국수 샘플집",
+    "city": "수원",
+    "cuisine": "칼국수",
+    "address": "수원 (샘플 주소)",
+    "estimated_duration_min": 50,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-kalguksu-dj",
+    "id": "rest-kalguksu-dj",
+    "name": "칼국수 샘플집",
+    "city": "대전",
+    "cuisine": "칼국수",
+    "address": "대전 (샘플 주소)",
+    "estimated_duration_min": 50,
+    "nearby_venues": [
+      "한화생명 볼파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-bakery",
+    "id": "rest-bakery",
+    "name": "빵집 샘플",
+    "city": "대전",
+    "cuisine": "디저트",
+    "address": "대전 (샘플 주소)",
+    "estimated_duration_min": 40,
+    "nearby_venues": [
+      "한화생명 볼파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-duruchigi",
+    "id": "rest-duruchigi",
+    "name": "두부두루치기 샘플집",
+    "city": "대전",
+    "cuisine": "한식",
+    "address": "대전 (샘플 주소)",
+    "estimated_duration_min": 60,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-chimaek-dj",
+    "id": "rest-chimaek-dj",
+    "name": "치킨 샘플집",
+    "city": "대전",
+    "cuisine": "치킨",
+    "address": "대전 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [
+      "한화생명 볼파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-makchang",
+    "id": "rest-makchang",
+    "name": "막창 샘플집",
+    "city": "대구",
+    "cuisine": "막창",
+    "address": "대구 (샘플 주소)",
+    "estimated_duration_min": 90,
+    "nearby_venues": [
+      "삼성 라이온즈 파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-napjak",
+    "id": "rest-napjak",
+    "name": "납작만두 샘플집",
+    "city": "대구",
+    "cuisine": "분식",
+    "address": "대구 (샘플 주소)",
+    "estimated_duration_min": 40,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-jjimgalbi",
+    "id": "rest-jjimgalbi",
+    "name": "찜갈비 샘플집",
+    "city": "대구",
+    "cuisine": "갈비",
+    "address": "대구 (샘플 주소)",
+    "estimated_duration_min": 80,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-chimaek-dg",
+    "id": "rest-chimaek-dg",
+    "name": "치킨 샘플집",
+    "city": "대구",
+    "cuisine": "치킨",
+    "address": "대구 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [
+      "삼성 라이온즈 파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-tteokgalbi",
+    "id": "rest-tteokgalbi",
+    "name": "떡갈비 샘플집",
+    "city": "광주",
+    "cuisine": "한정식",
+    "address": "광주 (샘플 주소)",
+    "estimated_duration_min": 90,
+    "nearby_venues": [
+      "기아 챔피언스 필드"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-odori",
+    "id": "rest-odori",
+    "name": "오리탕 샘플집",
+    "city": "광주",
+    "cuisine": "오리탕",
+    "address": "광주 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-sangchu",
+    "id": "rest-sangchu",
+    "name": "상추튀김 샘플집",
+    "city": "광주",
+    "cuisine": "분식",
+    "address": "광주 (샘플 주소)",
+    "estimated_duration_min": 40,
+    "nearby_venues": [
+      "기아 챔피언스 필드"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-chimaek-gj",
+    "id": "rest-chimaek-gj",
+    "name": "치킨 샘플집",
+    "city": "광주",
+    "cuisine": "치킨",
+    "address": "광주 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [
+      "기아 챔피언스 필드"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-agwi",
+    "id": "rest-agwi",
+    "name": "아귀찜 샘플집",
+    "city": "창원",
+    "cuisine": "해산물",
+    "address": "창원 (샘플 주소)",
+    "estimated_duration_min": 80,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-hoe-cw",
+    "id": "rest-hoe-cw",
+    "name": "회 샘플집",
+    "city": "창원",
+    "cuisine": "회",
+    "address": "창원 (샘플 주소)",
+    "estimated_duration_min": 90,
+    "nearby_venues": [],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-jjimdak",
+    "id": "rest-jjimdak",
+    "name": "찜닭 샘플집",
+    "city": "창원",
+    "cuisine": "닭요리",
+    "address": "창원 (샘플 주소)",
+    "estimated_duration_min": 60,
+    "nearby_venues": [
+      "NC파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
+  },
+  {
+    "restaurant_id": "rest-chimaek-cw",
+    "id": "rest-chimaek-cw",
+    "name": "치킨 샘플집",
+    "city": "창원",
+    "cuisine": "치킨",
+    "address": "창원 (샘플 주소)",
+    "estimated_duration_min": 70,
+    "nearby_venues": [
+      "NC파크"
+    ],
+    "source_type": "sample",
+    "source_url": null,
+    "verified_at": null,
+    "is_demo": true
   }
 ]

@@ -15,6 +15,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [build-system]
@@ -26,3 +27,4 @@ packages = ["teams", "app"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+asyncio_mode = "auto"  # async def 테스트를 마커 없이 실행
