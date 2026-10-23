@@ -62,6 +62,11 @@ def _recover_events(state: MyState) -> list[dict]:
     return []
 
 
+def _team_in_event(team: str, event: dict) -> bool:
+    """팀 이름이 경기의 홈/원정 팀 중 하나와 겹치는가 ("한화"와 "한화 이글스" 어느 쪽 표기든 허용)."""
+    return any(team in name or name in team for name in (event["home_team"], event["away_team"]))
+
+
 def _match_event_by_text(events: list[dict], text: str) -> str | None:
     """사용자 문장에 YYYY-MM-DD 날짜(와 HH:MM 시각)가 있으면 후보 중 정확히 하나로 좁혀지는 경기의 id를 돌려준다.
     LLM이 selected_event_id를 못 채워도 "2026-10-28 (수) 18:30 경기로 ..." 같은 선택을 코드가 인식하게 하는 안전망이다."""
@@ -113,6 +118,9 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     previous = {"sport_type": "baseball", **old}
     changed = {k for k in SEARCH_KEYS if new.get(k) != previous.get(k)}
     event = find_event(state, chosen_id) if chosen_id else selected_event(state)
+    if chosen_id and "team" in changed and _team_in_event(new["team"], event):
+        # 후보 중 경기를 고르면서 LLM이 그 경기의 팀을 조건으로 함께 추출한 경우다: 검색 조건 변경이 아니므로 후보를 지우지 않는다.
+        changed.discard("team")
     if changed and changed <= {"date_from", "date_to"} and _event_in_range(event, new):
         # 경기를 고른 뒤 날짜만 말하면 검색 범위가 아니라 "여행 기간"으로 본다: 고른 경기와 후보는 유지하고 일정만 다시 만든다.
         changes["trip_plan"] = None
