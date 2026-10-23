@@ -39,9 +39,8 @@ class PreferenceUpdate(BaseModel):
 MAX_TRIP_DAYS = 14
 
 
-def _event_in_range(state: MyState, prefs: TripPreferences) -> bool:
-    """선택한 경기일이 새 날짜 범위 안인가. 경기 시각을 모르거나 범위가 이상하면 False (기존대로 검색 조건 변경으로 처리)."""
-    event = selected_event(state)
+def _event_in_range(event: dict | None, prefs: TripPreferences) -> bool:
+    """경기일이 새 날짜 범위 안인가. 경기가 없거나 시각을 모르거나 범위가 이상하면 False (기존대로 검색 조건 변경으로 처리)."""
     try:
         return date.fromisoformat(prefs["date_from"]) <= date.fromisoformat(event["start_at"][:10]) <= date.fromisoformat(prefs["date_to"])
     except (KeyError, TypeError, ValueError):
@@ -64,10 +63,23 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
 
     changes: dict = {"trip_preferences": new, "clarification_note": update.clarification_note}
 
+    # 이번 입력에서 고른 경기를 먼저 확정한다 (번호 또는 event_id, 현재 후보에 실제로 있을 때만).
+    # 날짜 변경을 "검색 조건 변경"으로 처리하기 전에 해야, "10/28 경기로 2박 3일"처럼 선택과 날짜를 함께 말해도 선택이 지워지지 않는다.
+    events = state.get("sports_events") or []
+    chosen_id = None
+    if find_event(state, update.selected_event_id):
+        chosen_id = update.selected_event_id
+    elif update.selected_event_number and 1 <= update.selected_event_number <= len(events):
+        chosen_id = events[update.selected_event_number - 1]["id"]
+    new_choice = bool(chosen_id) and chosen_id != state.get("selected_event_id")
+
     changed = {k for k in SEARCH_KEYS if new.get(k) != old.get(k)}
-    if changed and changed <= {"date_from", "date_to"} and _event_in_range(state, new):
+    event = find_event(state, chosen_id) if chosen_id else selected_event(state)
+    if changed and changed <= {"date_from", "date_to"} and _event_in_range(event, new):
         # 경기를 고른 뒤 날짜만 말하면 검색 범위가 아니라 "여행 기간"으로 본다: 고른 경기와 후보는 유지하고 일정만 다시 만든다.
         changes["trip_plan"] = None
+        if new_choice:
+            changes.update(selected_event_id=chosen_id, places=[], restaurants=[])
         span = date_span_days(new)
         if not update.duration_days and span and span <= MAX_TRIP_DAYS:
             new["duration_days"] = span  # 기간을 따로 말하지 않았으면 날짜 범위에서 계산한다.
@@ -78,15 +90,8 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
         changes.update(sports_events=[], selected_event_id=None, trip_plan=None, places=[], restaurants=[])
         return changes
 
-    # 검색 조건이 그대로면 현재 후보 안에서 사용자의 선택을 반영한다 (번호 또는 event_id, 실제 후보에 있을 때만).
-    events = state.get("sports_events") or []
-    chosen_id = None
-    if find_event(state, update.selected_event_id):
-        chosen_id = update.selected_event_id
-    elif update.selected_event_number and 1 <= update.selected_event_number <= len(events):
-        chosen_id = events[update.selected_event_number - 1]["id"]
-
-    if chosen_id and chosen_id != state.get("selected_event_id"):
+    # 검색 조건이 그대로면 현재 후보 안에서 사용자의 선택을 반영한다.
+    if new_choice:
         changes.update(selected_event_id=chosen_id, trip_plan=None, places=[], restaurants=[])
     elif any(new.get(k) != old.get(k) for k in new if k not in SEARCH_KEYS) and state.get("trip_plan"):
         # 인원/이동수단/관심사/여행 일수만 바뀜: 선택 경기는 유지하고 일정만 다시 만든다.

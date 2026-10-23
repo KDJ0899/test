@@ -28,6 +28,8 @@ EXTRACT_SYSTEM_PROMPT = """사용자의 여행 조건을 추출한다. 기준 �
   (예: "둘째 날 바다 관광 추가" -> ["둘째 날 바다 관광"]).
 - 아래 경기 후보 중 사용자가 고른 경기가 있으면 selected_event_number(1부터) 또는 selected_event_id를 채운다.
 - 날짜가 모호하거나 서로 모순되면 값을 채우지 말고 clarification_note에 확인 질문을 쓴다.
+  단, 경기를 골랐고 여행 일수만 말한 경우(예: "10/28 경기로 2박 3일")는 정상이다. 여행 시작일은 시스템이 따로 묻는다.
+  이때 경기일을 date_from/date_to로 넣지 말고 selected_event_number 또는 selected_event_id와 duration_days만 채운다.
 
 현재 저장된 조건: {preferences}
 경기 후보:
@@ -83,8 +85,10 @@ MISSING_FIELD_QUESTIONS = {
     "team": "응원하거나 보고 싶은 팀(또는 특정 경기)",
     "date_range": "경기를 찾을 날짜 범위 (예: 다음 달 토요일 중, 11월 첫째 주)",
     "duration_days": "여행 기간 (예: 1박 2일)",
+    # 경기를 고른 뒤 여행 날짜를 확정할 때 쓴다. 가능한 날짜 후보는 ask_clarification이 계산해 채운다.
+    "trip_start": "여행 날짜 (경기일 {event_date}을 포함해 {duration_days}일이면 {options} 중 어느 쪽인가요?)",
 }
-FIELD_LABELS = {"team": "팀/경기", "date_range": "날짜 범위", "duration_days": "여행 기간"}
+FIELD_LABELS = {"team": "팀/경기", "date_range": "날짜 범위", "duration_days": "여행 기간", "trip_start": "여행 날짜"}
 CLARIFICATION_TEMPLATE = """여행 일정을 만들려면 조건이 더 필요해요.
 
 **현재 정보**

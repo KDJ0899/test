@@ -25,16 +25,20 @@ def date_span_days(prefs: dict) -> int | None:
         return None
 
 
-def trip_start_date(event: dict, prefs: dict) -> date:
-    """일정 Day 1의 날짜. 날짜 범위가 여행 기간(범위 일수 == duration_days)이고 경기일을 포함하면 범위 시작일,
-    아니면(검색용 넓은 범위) 경기일을 Day 1로 본다."""
+def trip_period_start(event: dict, prefs: dict) -> date | None:
+    """날짜 범위가 여행 기간(범위 일수 == duration_days)이고 경기일을 포함하면 그 시작일, 아니면 None."""
     event_date = date.fromisoformat(event["start_at"][:10])
     span = date_span_days(prefs)
     if span and span == prefs.get("duration_days"):
         start = date.fromisoformat(prefs["date_from"])
         if start <= event_date <= start.fromordinal(start.toordinal() + span - 1):
             return start
-    return event_date
+    return None
+
+
+def trip_start_date(event: dict, prefs: dict) -> date:
+    """일정 Day 1의 날짜. 여행 기간이 정해졌으면 그 시작일, 아니면(검색용 넓은 범위) 경기일을 Day 1로 본다."""
+    return trip_period_start(event, prefs) or date.fromisoformat(event["start_at"][:10])
 
 
 def compute_trip_status(state: MyState) -> str:

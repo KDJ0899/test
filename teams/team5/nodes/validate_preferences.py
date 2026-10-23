@@ -1,10 +1,10 @@
 # validate_preferences 노드: LLM 없이 규칙만으로 여행 조건이 충분한지 검사한다 (결정적).
-# 필수 조건: 팀(또는 선택한 경기), 검색 가능한 날짜 범위, 여행 일수. 부족하면 missing_fields에 담아 ask_clarification으로 보낸다.
+# 필수 조건: 팀(또는 선택한 경기), 검색 가능한 날짜 범위, 여행 일수. 경기를 고른 2일 이상 여행은 여행 날짜(trip_start)도 필요하다. 부족하면 missing_fields에 담아 ask_clarification으로 보낸다.
 
 from datetime import date
 
 from teams.team5.state import MyState
-from teams.team5.trip_state import compute_trip_status, selected_event
+from teams.team5.trip_state import compute_trip_status, selected_event, trip_period_start
 
 
 def find_missing_fields(state: MyState) -> list[str]:
@@ -22,6 +22,10 @@ def find_missing_fields(state: MyState) -> list[str]:
             missing.append("date_range")
     if not prefs.get("duration_days"):
         missing.append("duration_days")
+    # 경기를 이미 골랐고 2일 이상이면, 경기일이 며칠째인지(27~29인지 28~30인지) 여행 날짜를 확정해야 한다.
+    event = selected_event(state)
+    if event and (prefs.get("duration_days") or 0) > 1 and not trip_period_start(event, prefs):
+        missing.append("trip_start")
     return missing
 
 
