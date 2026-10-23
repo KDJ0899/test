@@ -97,7 +97,7 @@ CLARIFICATION_TEMPLATE = """여행 일정을 만들려면 조건이 더 필요�
 **더 필요한 정보**
 {missing}
 
-한 번에 알려주세요."""
+추가 정보를 입력해주세요."""
 CLARIFICATION_NONE_FILLED = "- (아직 없음)"
 
 # --- 승인 대화 (HITL을 interrupt 대신 대화로 처리한다) ---
