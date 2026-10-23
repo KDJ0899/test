@@ -8,7 +8,7 @@ import json
 import logging
 
 from teams.team5.state import MyState
-from teams.team5.trip_state import compute_trip_status, find_event
+from teams.team5.trip_state import compute_trip_status, find_event, match_event_by_text
 from langchain_core.documents import Document
 from langchain_core.messages import ToolMessage
 
@@ -67,6 +67,11 @@ def ingest_tool_results_node(state: MyState) -> dict:
                 )
     except Exception as exc:
         return {"error": f"Tool 결과를 처리하지 못했습니다: {exc}"}
+
+    # 후보 없이 "11/4 KT 위즈 vs LG 트윈스 경기로 ..."처럼 경기를 바로 지목한 여행 요청이면, 검색 결과에서 그 경기를 바로 선택한다.
+    if state.get("intent") == "trip" and changes.get("sports_events") and not state.get("selected_event_id"):
+        if chosen := match_event_by_text(changes["sports_events"], state.get("user_input", "")):
+            changes["selected_event_id"] = chosen
 
     merged = {**state, **changes}
     # 선택 경기는 반드시 현재 후보에 있는 실제 ID여야 한다: 후보가 바뀌어 사라졌다면 선택과 계획도 무효화한다.

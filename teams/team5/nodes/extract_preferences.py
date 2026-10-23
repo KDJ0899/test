@@ -3,7 +3,6 @@
 # 검색 조건(팀/날짜/요일)이 바뀌면 경기 후보·선택·일정을 무효화하고, 부가 조건만 바뀌면 선택 경기는 유지한 채 일정만 다시 만든다.
 
 import json
-import re
 from datetime import date
 from collections.abc import Awaitable, Callable
 
@@ -11,12 +10,16 @@ from teams.team5.clock import today_label
 from app.llm import get_llm
 from teams.team5.prompts import EXTRACT_SYSTEM_PROMPT
 from teams.team5.state import MyState, TripPreferences
-from teams.team5.trip_state import date_span_days, describe_events, find_event, selected_event
+from teams.team5.trip_state import (
+    date_span_days,
+    describe_events,
+    find_event,
+    match_event_by_text,
+    selected_event,
+    trip_dates_in_text,
+)
 from langchain_core.messages import SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
-
-DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
-TIME_PATTERN = re.compile(r"(\d{1,2}):(\d{2})")
 
 # 이 값이 바뀌면 이전에 검색한 경기 후보는 더 이상 유효하지 않다.
 SEARCH_KEYS = ("sport_type", "team", "date_from", "date_to", "preferred_weekdays")
@@ -67,19 +70,6 @@ def _team_in_event(team: str, event: dict) -> bool:
     return any(team in name or name in team for name in (event["home_team"], event["away_team"]))
 
 
-def _match_event_by_text(events: list[dict], text: str) -> str | None:
-    """사용자 문장에 YYYY-MM-DD 날짜(와 HH:MM 시각)가 있으면 후보 중 정확히 하나로 좁혀지는 경기의 id를 돌려준다.
-    LLM이 selected_event_id를 못 채워도 "2026-10-28 (수) 18:30 경기로 ..." 같은 선택을 코드가 인식하게 하는 안전망이다."""
-    dates = set(DATE_PATTERN.findall(text))
-    if len(dates) != 1:
-        return None
-    matches = [e for e in events if e["start_at"][:10] in dates]
-    if len(matches) > 1 and (found := TIME_PATTERN.search(text)):
-        hhmm = f"{int(found[1]):02d}:{found[2]}"
-        matches = [e for e in matches if e["start_at"][11:16] == hhmm]
-    return matches[0]["id"] if len(matches) == 1 else None
-
-
 def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     """PreferenceUpdate를 기존 State에 병합한 State 변경분을 반환한다 (순수 함수)."""
     recovered: list[dict] = []
@@ -111,13 +101,19 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     elif update.selected_event_number and 1 <= update.selected_event_number <= len(events):
         chosen_id = events[update.selected_event_number - 1]["id"]
     else:
-        chosen_id = _match_event_by_text(events, state.get("user_input", ""))
+        chosen_id = match_event_by_text(events, state.get("user_input", ""))
     new_choice = bool(chosen_id) and chosen_id != state.get("selected_event_id")
+    event = find_event(state, chosen_id) if chosen_id else selected_event(state)
+
+    # "3~5일로 갈 거야"처럼 일(日)만 말한 여행 날짜는 코드가 경기의 달에 붙여 날짜 범위로 만든다.
+    # LLM이 범위를 못 채웠거나 경기일 하루만 채운 경우(date_from == date_to)에만 덮어쓴다.
+    llm_range = update.date_from and update.date_to and update.date_from != update.date_to
+    if not llm_range and (days := trip_dates_in_text(state.get("user_input", ""), event)):
+        new["date_from"], new["date_to"] = days
 
     # sport_type은 기본값(baseball)이 채워지는 것이라 첫 턴(old가 비어 있음)에 변경으로 오인하지 않도록 기본값을 깔고 비교한다.
     previous = {"sport_type": "baseball", **old}
     changed = {k for k in SEARCH_KEYS if new.get(k) != previous.get(k)}
-    event = find_event(state, chosen_id) if chosen_id else selected_event(state)
     if chosen_id and "team" in changed and _team_in_event(new["team"], event):
         # 후보 중 경기를 고르면서 LLM이 그 경기의 팀을 조건으로 함께 추출한 경우다: 검색 조건 변경이 아니므로 후보를 지우지 않는다.
         changed.discard("team")
