@@ -73,7 +73,9 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
         chosen_id = events[update.selected_event_number - 1]["id"]
     new_choice = bool(chosen_id) and chosen_id != state.get("selected_event_id")
 
-    changed = {k for k in SEARCH_KEYS if new.get(k) != old.get(k)}
+    # sport_type은 기본값(baseball)이 채워지는 것이라 첫 턴(old가 비어 있음)에 변경으로 오인하지 않도록 기본값을 깔고 비교한다.
+    previous = {"sport_type": "baseball", **old}
+    changed = {k for k in SEARCH_KEYS if new.get(k) != previous.get(k)}
     event = find_event(state, chosen_id) if chosen_id else selected_event(state)
     if changed and changed <= {"date_from", "date_to"} and _event_in_range(event, new):
         # 경기를 고른 뒤 날짜만 말하면 검색 범위가 아니라 "여행 기간"으로 본다: 고른 경기와 후보는 유지하고 일정만 다시 만든다.

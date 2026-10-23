@@ -1,7 +1,8 @@
 # ingest_tool_results 노드: tools 노드가 만든 ToolMessage의 구조화된 결과({status, source, data})를 State 검색 캐시에 반영한다.
 # 같은 ToolMessage를 두 번 처리하지 않도록 처리한 tool_call_id를 processed_tool_call_ids에 기록한다.
 # 이번 턴 사용자 입력 이후의 ToolMessage만 대상으로 삼고, 여행(trip) 의도일 때만 캐시를 갱신한다
-# (경기 일정만 물어본 tool 의도 질문이 진행 중인 여행 후보를 덮어쓰지 않게).
+# (경기 일정만 물어본 qa 질문이 진행 중인 여행 후보를 덮어쓰지 않게). 단, 아직 고른 경기가 없다면
+# 경기 목록 조회는 qa여도 후보로 저장한다 (조회 결과 중 하나를 다음 턴에 골라 여행을 시작할 수 있게).
 
 import json
 import logging
@@ -52,8 +53,10 @@ def ingest_tool_results_node(state: MyState) -> dict:
                 found = [Document(page_content=d["content"], metadata={"source": d["source"]}) for d in data["docs"]]
                 changes["retrieved_docs"] = [*changes.get("retrieved_docs", state.get("retrieved_docs") or []), *found]
                 continue
-            if state.get("intent") not in ("trip", None):
-                continue  # 경기/장소 검색 캐시는 trip 흐름에서만 갱신한다 (None은 승인 후 재개 턴).
+            # 경기 목록 조회(qa)도 아직 고른 경기가 없으면 후보로 저장한다: 그래야 다음 턴에 "그중 28일 경기로 ..."처럼 고를 수 있다.
+            first_lookup = message.name == "search_sports_events" and not state.get("selected_event_id")
+            if state.get("intent") not in ("trip", None) and not first_lookup:
+                continue  # 그 외 경기/장소 검색 캐시는 trip 흐름에서만 갱신한다 (None은 승인 후 재개 턴).
             if message.name == "search_sports_events":
                 changes["sports_events"] = data["events"]  # 최신 검색 결과가 후보가 된다
             elif message.name == "search_places":
