@@ -26,4 +26,6 @@ def get_embeddings() -> OpenAIEmbeddings:
         model=config.EMBEDDING_MODEL,
         api_key=config.OPENAI_API_KEY,
         base_url=config.OPENAI_BASE_URL,
+        # tiktoken이 토큰 수 계산용 파일을 외부에서 내려받다 사내망 SSL 오류가 나므로 길이 체크를 끈다.
+        check_embedding_ctx_length=False,
     )

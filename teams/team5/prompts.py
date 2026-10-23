@@ -84,7 +84,17 @@ MISSING_FIELD_QUESTIONS = {
     "date_range": "경기를 찾을 날짜 범위 (예: 다음 달 토요일 중, 11월 첫째 주)",
     "duration_days": "여행 기간 (예: 1박 2일)",
 }
-CLARIFICATION_TEMPLATE = "여행 일정을 만들려면 아래 내용이 더 필요해요.\n{items}\n한 번에 알려주세요."
+FIELD_LABELS = {"team": "팀/경기", "date_range": "날짜 범위", "duration_days": "여행 기간"}
+CLARIFICATION_TEMPLATE = """여행 일정을 만들려면 조건이 더 필요해요.
+
+**현재 정보**
+{filled}
+
+**더 필요한 정보**
+{missing}
+
+한 번에 알려주세요."""
+CLARIFICATION_NONE_FILLED = "- (아직 없음)"
 
 # --- 승인 대화 (HITL을 interrupt 대신 대화로 처리한다) ---
 APPROVAL_REQUEST_HEADER = "[승인 요청]"
