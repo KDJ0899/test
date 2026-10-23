@@ -26,7 +26,7 @@ def selected_event(state: MyState) -> dict | None:
 
 def _first_words(event: dict) -> set[str]:
     """경기의 두 팀 이름 첫 단어 ("KT 위즈" -> "KT")."""
-    return {event[side].split()[0] for side in ("home_team", "away_team")}
+    return {name.split()[0] for side in ("home_team", "away_team") if (name := event.get(side, ""))}
 
 
 def teams_in_text(events: list[dict], text: str) -> set[str]:
@@ -43,7 +43,7 @@ def dates_in_text(text: str, years: set[str]) -> set[str]:
 
 
 def _years(events: list[dict]) -> set[str]:
-    return {e["start_at"][:4] for e in events} or {str(today().year)}
+    return {e["start_at"][:4] for e in events if e.get("start_at")} or {str(today().year)}
 
 
 def narrow_events_by_text(events: list[dict], text: str) -> list[dict]:
@@ -51,7 +51,7 @@ def narrow_events_by_text(events: list[dict], text: str) -> list[dict]:
     mentioned = dates_in_text(text, _years(events))
     if len(mentioned) != 1:
         return []
-    matches = [e for e in events if e["start_at"][:10] in mentioned]
+    matches = [e for e in events if e.get("start_at", "")[:10] in mentioned]
     if found := TIME_PATTERN.search(text):
         hhmm = f"{int(found[1]):02d}:{found[2]}"
         matches = [e for e in matches if e["start_at"][11:16] == hhmm]
@@ -79,7 +79,7 @@ def similar_events(all_events: list[dict], text: str, limit: int = 8) -> list[di
     teams = teams_in_text(all_events, text)
     found = TIME_PATTERN.search(text)
     wanted_minutes = int(found[1]) * 60 + int(found[2]) if found else None
-    pool = [e for e in all_events if e["start_at"][:10] == wanted or (teams and teams & _first_words(e))]
+    pool = [e for e in all_events if e.get("start_at", "")[:10] == wanted or (teams and teams & _first_words(e))]
 
     def distance(event: dict) -> tuple[int, int]:
         days = abs((date.fromisoformat(event["start_at"][:10]) - date.fromisoformat(wanted)).days)
