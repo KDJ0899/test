@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from teams.team5.clock import today_label
 from teams.team5 import config
 from app.llm import get_llm
-from teams.team5.prompts import RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
+from teams.team5.prompts import NO_NOTICE, RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
 from teams.team5.state import MyState
 from teams.team5.trip_state import describe_event, describe_events, selected_event
 from langchain_core.messages import SystemMessage
@@ -29,6 +29,7 @@ def build_trip_context(state: MyState) -> str:
         place_count=len(state.get("places") or []),
         restaurant_count=len(state.get("restaurants") or []),
         has_plan="있음" if state.get("trip_plan") else "없음",
+        notice=state.get("event_notice") or NO_NOTICE,
     )
 
 

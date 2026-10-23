@@ -24,28 +24,69 @@ def selected_event(state: MyState) -> dict | None:
     return find_event(state, state.get("selected_event_id"))
 
 
+def _first_words(event: dict) -> set[str]:
+    """경기의 두 팀 이름 첫 단어 ("KT 위즈" -> "KT")."""
+    return {event[side].split()[0] for side in ("home_team", "away_team")}
+
+
+def teams_in_text(events: list[dict], text: str) -> set[str]:
+    """문장에 언급된 팀의 첫 단어 ("KT위즈"처럼 붙여 써도 "KT"로 찾는다). 팀 목록은 주어진 경기들에서 얻는다."""
+    return {word for event in events for word in _first_words(event) if word in text}
+
+
+def dates_in_text(text: str, years: set[str]) -> set[str]:
+    """문장 속 날짜를 ISO 문자열 집합으로 읽는다. 2026-10-28 / 10/28 / 10월 28일 형식 (연도 없는 형식은 years 각각으로 해석)."""
+    found = set(ISO_DATE_PATTERN.findall(text))
+    for month, day in MONTH_DAY_PATTERN.findall(text):
+        found |= {f"{year}-{int(month):02d}-{int(day):02d}" for year in years}
+    return found
+
+
+def _years(events: list[dict]) -> set[str]:
+    return {e["start_at"][:4] for e in events} or {str(today().year)}
+
+
+def narrow_events_by_text(events: list[dict], text: str) -> list[dict]:
+    """사용자 문장이 가리키는 경기들: 날짜가 정확히 하나 있어야 하고, 시각(18:30)과 언급한 팀이 모두 맞는 경기만 남긴다."""
+    mentioned = dates_in_text(text, _years(events))
+    if len(mentioned) != 1:
+        return []
+    matches = [e for e in events if e["start_at"][:10] in mentioned]
+    if found := TIME_PATTERN.search(text):
+        hhmm = f"{int(found[1]):02d}:{found[2]}"
+        matches = [e for e in matches if e["start_at"][11:16] == hhmm]
+    teams = teams_in_text(events, text)
+    return [e for e in matches if teams <= _first_words(e)]
+
+
 def match_event_by_text(events: list[dict], text: str) -> str | None:
     """사용자 문장이 후보 중 정확히 한 경기를 가리키면 그 경기의 id를 돌려준다 (LLM이 선택을 못 채워도 코드가 인식하는 안전망).
-    날짜는 2026-10-28 / 10/28 / 10월 28일 형식을 읽고, 같은 날 경기가 여럿이면 시각(18:30), 그다음 문장에 언급된 팀 수로 좁힌다.
     문장에 날짜가 하나가 아니면(범위 검색 등) 선택으로 보지 않는다."""
-    years = {e["start_at"][:4] for e in events}
-    mentioned = set(ISO_DATE_PATTERN.findall(text))
-    for month, day in MONTH_DAY_PATTERN.findall(text):
-        mentioned |= {f"{year}-{int(month):02d}-{int(day):02d}" for year in years}
-    if len(mentioned) != 1:
-        return None
-    matches = [e for e in events if e["start_at"][:10] in mentioned]
-    if len(matches) > 1 and (found := TIME_PATTERN.search(text)):
-        hhmm = f"{int(found[1]):02d}:{found[2]}"
-        matches = [e for e in matches if e["start_at"][11:16] == hhmm] or matches
-    if len(matches) > 1:
-        # 팀 이름의 첫 단어("KT 위즈" -> "KT")가 문장에 몇 개 나오는지 센다. 가장 많이 언급된 경기가 하나일 때만 고른다.
-        def mentions(event: dict) -> int:
-            return sum(event[side].split()[0] in text for side in ("home_team", "away_team"))
-
-        best = max(mentions(e) for e in matches)
-        matches = [e for e in matches if mentions(e) == best] if best else matches
+    matches = narrow_events_by_text(events, text)
     return matches[0]["id"] if len(matches) == 1 else None
+
+
+def is_specific_game_request(events: list[dict], text: str) -> bool:
+    """날짜 하나에 시각이나 팀까지 말해 특정 경기를 지목한 문장인가 ("11/4 경기 알려줘"처럼 날짜만 있으면 지목이 아니다)."""
+    if len(dates_in_text(text, _years(events))) != 1:
+        return False
+    return bool(TIME_PATTERN.search(text)) or bool(teams_in_text(events, text))
+
+
+def similar_events(all_events: list[dict], text: str, limit: int = 8) -> list[dict]:
+    """지목한 경기가 없을 때 보여줄 대안: 같은 날짜 경기 + 언급한 팀의 경기를 날짜가 가깝고 시각이 비슷한 순으로 돌려준다."""
+    (wanted,) = dates_in_text(text, _years(all_events))
+    teams = teams_in_text(all_events, text)
+    found = TIME_PATTERN.search(text)
+    wanted_minutes = int(found[1]) * 60 + int(found[2]) if found else None
+    pool = [e for e in all_events if e["start_at"][:10] == wanted or (teams and teams & _first_words(e))]
+
+    def distance(event: dict) -> tuple[int, int]:
+        days = abs((date.fromisoformat(event["start_at"][:10]) - date.fromisoformat(wanted)).days)
+        minutes = int(event["start_at"][11:13]) * 60 + int(event["start_at"][14:16])
+        return days, abs(minutes - wanted_minutes) if wanted_minutes is not None else 0
+
+    return sorted(pool, key=distance)[:limit]
 
 
 def trip_dates_in_text(text: str, event: dict | None) -> tuple[str, str] | None:

@@ -7,8 +7,17 @@
 import json
 import logging
 
+from teams.team5.prompts import EVENT_NOT_FOUND_NOTICE
 from teams.team5.state import MyState
-from teams.team5.trip_state import compute_trip_status, find_event, match_event_by_text
+from teams.team5.tools.local_tools import search_sports_events
+from teams.team5.trip_state import (
+    compute_trip_status,
+    find_event,
+    is_specific_game_request,
+    match_event_by_text,
+    narrow_events_by_text,
+    similar_events,
+)
 from langchain_core.documents import Document
 from langchain_core.messages import ToolMessage
 
@@ -34,6 +43,30 @@ def _latest_tool_messages(state: MyState) -> list[ToolMessage]:
     messages = state["messages"]
     last_human = max((i for i, m in enumerate(messages) if m.type == "human"), default=-1)
     return [m for m in messages[last_human + 1 :] if isinstance(m, ToolMessage)]
+
+
+def _pick_named_event(found: list[dict], text: str) -> dict:
+    """문장이 지목한 경기를 고른다. 검색 결과에 없으면 전체 일정에서 다시 찾고, 그래도 없으면 비슷한 시간대/언급한 팀의 경기를 후보로 바꾼다."""
+    if chosen := match_event_by_text(found, text):
+        return {"selected_event_id": chosen}
+    if not is_specific_game_request(found, text):
+        return {}  # 날짜만 말했거나 범위 검색이면 검색 결과 목록을 그대로 보여준다.
+    if narrow_events_by_text(found, text):
+        return {}  # 지목한 조건에 맞는 경기가 여럿이면 그 목록에서 사용자가 고르게 한다.
+    # 검색 결과에 없다: LLM이 좁게 검색했을 수 있으니 전체 일정에서 한 번 더 찾는다 (로컬 툴이라 외부 호출이 아니다).
+    all_events = _parse_events(search_sports_events.invoke({}))
+    if narrowed := narrow_events_by_text(all_events, text):
+        return {"sports_events": narrowed, **({"selected_event_id": narrowed[0]["id"]} if len(narrowed) == 1 else {})}
+    if similar := similar_events(all_events, text):
+        return {"sports_events": similar, "event_notice": EVENT_NOT_FOUND_NOTICE}
+    return {}
+
+
+def _parse_events(raw: str) -> list[dict]:
+    try:
+        return json.loads(raw)["data"]["events"]
+    except (TypeError, KeyError, ValueError):
+        return []
 
 
 def ingest_tool_results_node(state: MyState) -> dict:
@@ -69,9 +102,8 @@ def ingest_tool_results_node(state: MyState) -> dict:
         return {"error": f"Tool 결과를 처리하지 못했습니다: {exc}"}
 
     # 후보 없이 "11/4 KT 위즈 vs LG 트윈스 경기로 ..."처럼 경기를 바로 지목한 여행 요청이면, 검색 결과에서 그 경기를 바로 선택한다.
-    if state.get("intent") == "trip" and changes.get("sports_events") and not state.get("selected_event_id"):
-        if chosen := match_event_by_text(changes["sports_events"], state.get("user_input", "")):
-            changes["selected_event_id"] = chosen
+    if state.get("intent") == "trip" and "sports_events" in changes and not state.get("selected_event_id"):
+        changes.update(_pick_named_event(changes["sports_events"], state.get("user_input", "")))
 
     merged = {**state, **changes}
     # 선택 경기는 반드시 현재 후보에 있는 실제 ID여야 한다: 후보가 바뀌어 사라졌다면 선택과 계획도 무효화한다.

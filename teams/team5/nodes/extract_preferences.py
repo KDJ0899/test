@@ -6,12 +6,13 @@ import json
 from datetime import date
 from collections.abc import Awaitable, Callable
 
-from teams.team5.clock import today_label
+from teams.team5.clock import today, today_label
 from app.llm import get_llm
 from teams.team5.prompts import EXTRACT_SYSTEM_PROMPT
 from teams.team5.state import MyState, TripPreferences
 from teams.team5.trip_state import (
     date_span_days,
+    dates_in_text,
     describe_events,
     find_event,
     match_event_by_text,
@@ -110,6 +111,11 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     llm_range = update.date_from and update.date_to and update.date_from != update.date_to
     if not llm_range and (days := trip_dates_in_text(state.get("user_input", ""), event)):
         new["date_from"], new["date_to"] = days
+    elif not (new.get("date_from") and new.get("date_to")):
+        # 날짜 범위가 아직 없는데 "11/4 KT vs LG 경기"처럼 경기일을 말했다면, 그 하루를 검색 범위로 삼아 날짜를 다시 묻지 않는다.
+        named = dates_in_text(state.get("user_input", ""), {str(today().year)})
+        if len(named) == 1:
+            new["date_from"] = new["date_to"] = next(iter(named))
 
     # sport_type은 기본값(baseball)이 채워지는 것이라 첫 턴(old가 비어 있음)에 변경으로 오인하지 않도록 기본값을 깔고 비교한다.
     previous = {"sport_type": "baseball", **old}

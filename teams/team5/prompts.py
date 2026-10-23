@@ -43,10 +43,12 @@ TRIP_CONTEXT_TEMPLATE = """[여행 계획 상태] (기준 날짜: {today})
 - 경기 후보 (번호 순서 그대로 제시하고 event_id를 함께 보여준다):
 {events}
 - 확보한 관광지 {place_count}곳, 식당 {restaurant_count}곳 / 저장된 일정: {has_plan}
+- 알림: {notice}
 
 진행 단계별 행동:
 - searching: 조건(팀, date_from~date_to, preferred_weekdays)으로 search_sports_events를 호출한다. 0건이면 가짜 경기를 만들지 말고 날짜 범위나 팀 조건 변경을 제안한다.
 - selecting: 경기 후보를 번호, 날짜/시각, 상대 팀, 경기장, 출처(가상 데이터 여부)와 함께 제시하고 선택을 기다린다.
+  알림이 있으면 그 내용을 먼저 전한다 (사용자가 말한 경기가 없다고 알리고, 후보가 대신 고른 대안임을 설명한다).
 - planning: 선택한 경기 도시로 search_places / search_restaurants를 호출해 후보를 확보한다.
   (가이드 문서는 일정 작성 단계에서 자동으로 검색되어 반영된다.)
   이미 충분하면 추가 검색 없이 "검색 완료"라고만 답한다 (일정 작성은 다음 단계가 맡는다).
@@ -56,6 +58,10 @@ RAG_CONTEXT_TEMPLATE = """다음은 검색된 가이드 문서다. 이 내용을
 실제 경기 일정은 이 문서가 아니라 검색 툴로 확인해야 한다.
 
 {context}"""
+
+# 지목한 경기가 데이터에 없을 때 agent 컨텍스트에 실리는 알림 (ingest_tool_results가 채운다)
+EVENT_NOT_FOUND_NOTICE = "사용자가 말한 경기는 일정에 없다. 같은 날짜·비슷한 시간대 경기와 언급한 팀의 가까운 경기를 후보로 담았다."
+NO_NOTICE = "(없음)"
 
 # 일정 작성 직전의 고정 검색 질의 (조건에서 만든다, LLM 판단 없음)
 PLAN_GUIDE_QUERY_TEMPLATE = "경기 연계 여행 일정 구성 원칙과 {transport} 동선"

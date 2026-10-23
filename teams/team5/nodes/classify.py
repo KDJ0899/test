@@ -39,6 +39,7 @@ def make_classify_node() -> Callable[[MyState], Awaitable[dict]]:
             "needs_guide": False,
             "missing_fields": [],
             "clarification_note": None,
+            "event_notice": None,
             "approval_decision": None,
             "tool_iterations": 0,
             "error": None,

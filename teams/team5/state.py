@@ -34,6 +34,7 @@ class MyState(TypedDict, total=False):
     missing_fields: list[str]
     clarification_note: str | None  # 날짜가 모호/모순일 때 extract가 남기는 확인 질문
     sports_events: list[dict[str, Any]]  # 검색 캐시 (번호 = 리스트 순서 + 1)
+    event_notice: str | None  # 이번 턴 경기 검색에 대한 알림 (예: 지목한 경기가 없어 대안을 담음). 턴마다 초기화
     selected_event_id: str | None
     places: list[dict[str, Any]]
     restaurants: list[dict[str, Any]]
