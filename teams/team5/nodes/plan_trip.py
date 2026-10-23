@@ -1,17 +1,22 @@
 # plan_trip 노드: 선택한 경기 + 확보한 관광지/식당 + 여행 조건으로 일정을 만든다 (LLM, Structured Output).
-# 만든 일정은 validate_trip_plan(순수 함수)으로 검증하고, 실패하면 위반 내용을 알려 한 번만 다시 만든다.
-# 그래도 실패하면 일정을 확정하지 않고 어떤 제약을 못 지켰는지 사용자에게 설명한다. 성공한 일정만 State(trip_plan)에 저장한다.
+# 초안의 흔한 실수(없는 장소 ID, 중복, 시간 역전/겹침)는 repair_items로 코드가 먼저 고치고, validate_trip_plan(순수 함수)으로 검증한다.
+# 그래도 실패하면 위반 내용을 LLM에 알려 PLAN_MAX_ATTEMPTS까지 다시 만든다. 끝내 실패하면 일정을 확정하지 않고 위반 내용은 로그에만 남긴다.
+# 성공한 일정만 State(trip_plan)에 저장한다.
 
 import json
+import logging
 from collections.abc import Awaitable, Callable
 
 from app.llm import get_llm
-from teams.team5.prompts import PLAN_INVALID_TEMPLATE, PLAN_NOTICE, PLAN_RETRY_FEEDBACK, PLAN_SYSTEM_PROMPT
+from teams.team5 import config
+from teams.team5.prompts import PLAN_FAILED_MESSAGE, PLAN_NOTICE, PLAN_RETRY_FEEDBACK, PLAN_SYSTEM_PROMPT
 from teams.team5.state import MyState
 from teams.team5.trip_state import describe_event, selected_event, trip_start_date
-from teams.team5.trip_validation import validate_trip_plan
+from teams.team5.trip_validation import repair_items, validate_trip_plan
 from langchain_core.messages import AIMessage, SystemMessage
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 
 class PlanItemDraft(BaseModel):
@@ -87,7 +92,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
 
         errors: list[str] = []
         try:
-            for _attempt in range(2):  # 초안 1회 + 검증 실패 시 재작성 1회
+            for _attempt in range(config.PLAN_MAX_ATTEMPTS):  # 초안 1회 + 검증 실패 시 재작성
                 feedback = PLAN_RETRY_FEEDBACK.format(errors="\n".join(f"- {e}" for e in errors)) if errors else ""
                 system = PLAN_SYSTEM_PROMPT.format(
                     event_start=event["start_at"],
@@ -103,6 +108,9 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
                 draft = await structured_llm.ainvoke(
                     [SystemMessage(content=system), *state["messages"]], config={"tags": ["internal"]}
                 )
+                # 검증 전에 고칠 수 있는 실수는 코드로 고친다 (출처 목록도 고친 항목 기준으로 만들어진다).
+                fixed = repair_items([i.model_dump() for i in draft.items], event, known_ids)
+                draft = draft.model_copy(update={"items": [PlanItemDraft(**i) for i in fixed]})
                 plan = build_plan(draft, event, duration, state)
                 errors = validate_trip_plan(plan, event, duration, known_ids, start_date)
                 if not errors:
@@ -115,7 +123,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
         except Exception as exc:
             return {"error": str(exc)}
 
-        answer = PLAN_INVALID_TEMPLATE.format(errors="\n".join(f"- {e}" for e in errors))
-        return {"trip_plan": None, "messages": [AIMessage(content=answer)]}
+        logger.warning("일정 검증 실패 (%d회 시도): %s", config.PLAN_MAX_ATTEMPTS, errors)
+        return {"trip_plan": None, "messages": [AIMessage(content=PLAN_FAILED_MESSAGE)]}
 
     return plan_trip_node

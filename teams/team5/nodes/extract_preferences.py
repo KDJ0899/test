@@ -13,8 +13,11 @@ from teams.team5.state import MyState, TripPreferences
 from teams.team5.trip_state import (
     date_span_days,
     dates_in_text,
+    duration_in_text,
     describe_events,
     find_event,
+    first_team_in_text,
+    load_all_events,
     match_event_by_text,
     selected_event,
     trip_dates_in_text,
@@ -108,14 +111,28 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
 
     # "3~5일로 갈 거야"처럼 일(日)만 말한 여행 날짜는 코드가 경기의 달에 붙여 날짜 범위로 만든다.
     # LLM이 범위를 못 채웠거나 경기일 하루만 채운 경우(date_from == date_to)에만 덮어쓴다.
+    named_dates: set[str] = set()
     llm_range = update.date_from and update.date_to and update.date_from != update.date_to
+    days = None
     if not llm_range and (days := trip_dates_in_text(state.get("user_input", ""), event)):
         new["date_from"], new["date_to"] = days
     elif not (new.get("date_from") and new.get("date_to")):
         # 날짜 범위가 아직 없는데 "11/4 KT vs LG 경기"처럼 경기일을 말했다면, 그 하루를 검색 범위로 삼아 날짜를 다시 묻지 않는다.
-        named = dates_in_text(state.get("user_input", ""), {str(today().year)})
-        if len(named) == 1:
-            new["date_from"] = new["date_to"] = next(iter(named))
+        named_dates = dates_in_text(state.get("user_input", ""), {str(today().year)})
+        if len(named_dates) == 1:
+            new["date_from"] = new["date_to"] = next(iter(named_dates))
+
+    # LLM이 못 채운 값은 문장에서 코드가 보충한다: 후보 목록 없이 "11/4 KT vs LG 경기로 2박 3일"처럼 한 번에 말하면
+    # LLM이 팀을 비우거나 기간을 놓칠 수 있고, 그러면 validate_preferences가 부족하다고 보고 질문으로 끝난다.
+    text = state.get("user_input", "")
+    if not new.get("team") and not event:
+        new_team = first_team_in_text(state.get("sports_events") or load_all_events(), text)
+        if new_team:
+            new["team"] = new_team
+    if not new.get("duration_days") and (days_in_text := duration_in_text(text)):
+        new["duration_days"] = days_in_text
+    if new.get("date_from") and new.get("date_to") and update.clarification_note and (days or len(named_dates) == 1):
+        changes["clarification_note"] = None  # 날짜를 코드가 확정했으면 LLM의 날짜 확인 질문은 필요 없다.
 
     # sport_type은 기본값(baseball)이 채워지는 것이라 첫 턴(old가 비어 있음)에 변경으로 오인하지 않도록 기본값을 깔고 비교한다.
     previous = {"sport_type": "baseball", **old}

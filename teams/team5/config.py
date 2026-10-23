@@ -14,6 +14,9 @@ RAG_TOP_K: int = 3
 # Agent <-> Tool 루프 최대 반복
 AGENT_MAX_ITERATIONS: int = 10
 
+# 일정 작성 최대 시도 횟수 (초안 1회 + 검증 실패 시 위반 내용을 알려 다시 작성)
+PLAN_MAX_ATTEMPTS: int = 3
+
 # 승인이 필요한 툴 이름. 승인이 필요 없으면 []로 둔다.
 APPROVAL_REQUIRED_TOOLS: list[str] = ["save_trip_plan"]
 

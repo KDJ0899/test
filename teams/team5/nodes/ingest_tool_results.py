@@ -9,11 +9,11 @@ import logging
 
 from teams.team5.prompts import EVENT_NOT_FOUND_NOTICE
 from teams.team5.state import MyState
-from teams.team5.tools.local_tools import search_sports_events
 from teams.team5.trip_state import (
     compute_trip_status,
     find_event,
     is_specific_game_request,
+    load_all_events,
     match_event_by_text,
     narrow_events_by_text,
     similar_events,
@@ -54,19 +54,12 @@ def _pick_named_event(found: list[dict], text: str) -> dict:
     if narrow_events_by_text(found, text):
         return {}  # 지목한 조건에 맞는 경기가 여럿이면 그 목록에서 사용자가 고르게 한다.
     # 검색 결과에 없다: LLM이 좁게 검색했을 수 있으니 전체 일정에서 한 번 더 찾는다 (로컬 툴이라 외부 호출이 아니다).
-    all_events = _parse_events(search_sports_events.invoke({}))
+    all_events = load_all_events()
     if narrowed := narrow_events_by_text(all_events, text):
         return {"sports_events": narrowed, **({"selected_event_id": narrowed[0]["id"]} if len(narrowed) == 1 else {})}
     if similar := similar_events(all_events, text):
         return {"sports_events": similar, "event_notice": EVENT_NOT_FOUND_NOTICE}
     return {}
-
-
-def _parse_events(raw: str) -> list[dict]:
-    try:
-        return json.loads(raw)["data"]["events"]
-    except (TypeError, KeyError, ValueError):
-        return []
 
 
 def ingest_tool_results_node(state: MyState) -> dict:

@@ -1,16 +1,19 @@
 # State에서 파생되는 값을 계산하는 작은 순수 함수 모음 (LLM 호출 없음).
 # 여러 노드(validate_preferences, ingest_tool_results, agent, plan_trip)가 같은 기준으로 단계/선택 경기를 판단하도록 모아 둔다.
 
+import json
 import re
 from datetime import date
 
 from teams.team5.clock import today
 from teams.team5.state import MyState
+from teams.team5.tools.local_tools import search_sports_events
 
 ISO_DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 MONTH_DAY_PATTERN = re.compile(r"(\d{1,2})\s*[/월]\s*(\d{1,2})")  # 11/4, 11월 4일
 TIME_PATTERN = re.compile(r"(\d{1,2}):(\d{2})")
 DAY_RANGE_PATTERN = re.compile(r"(\d{1,2})\s*일?\s*~\s*(\d{1,2})\s*일")  # 3~5일, 3일~5일
+NIGHTS_PATTERN = re.compile(r"(\d{1,2})\s*박\s*(\d{1,2})\s*일")  # 2박 3일
 
 
 def find_event(state: MyState, event_id: str | None) -> dict | None:
@@ -22,6 +25,27 @@ def find_event(state: MyState, event_id: str | None) -> dict | None:
 
 def selected_event(state: MyState) -> dict | None:
     return find_event(state, state.get("selected_event_id"))
+
+
+def load_all_events() -> list[dict]:
+    """전체 경기 일정 (로컬 툴로 읽는다). 후보 목록이 없을 때 문장 속 팀/경기를 알아보는 기준으로 쓴다."""
+    try:
+        return json.loads(search_sports_events.invoke({}))["data"]["events"]
+    except (TypeError, KeyError, ValueError):
+        return []
+
+
+def duration_in_text(text: str) -> int | None:
+    """"2박 3일" -> 3, "당일치기" -> 1. 말하지 않았으면 None."""
+    if found := NIGHTS_PATTERN.search(text):
+        return int(found[2])
+    return 1 if "당일" in text else None
+
+
+def first_team_in_text(events: list[dict], text: str) -> str | None:
+    """문장에서 가장 먼저 나오는 팀의 첫 단어 (검색 툴이 부분 일치로 거르므로 "KT"만으로 충분하다)."""
+    teams = teams_in_text(events, text)
+    return min(teams, key=text.index) if teams else None
 
 
 def _first_words(event: dict) -> set[str]:
