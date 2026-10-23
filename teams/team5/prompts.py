@@ -28,7 +28,9 @@ EXTRACT_SYSTEM_PROMPT = """사용자의 여행 조건을 추출한다. 기준 �
   (예: "둘째 날 바다 관광 추가" -> ["둘째 날 바다 관광"]).
 - 아래 경기 후보 중 사용자가 고른 경기가 있으면 selected_event_number(1부터) 또는 selected_event_id를 채운다.
 - 여행 날짜를 일(日)만 말하면(예: "11/4 경기, 3~5일로 갈 거야") 경기의 달과 연도를 붙여 date_from=2026-11-03, date_to=2026-11-05처럼 채운다.
-- 날짜가 모호하거나 서로 모순되면 값을 채우지 말고 clarification_note에 확인 질문을 쓴다.
+- 날짜가 모호하거나 서로 모순되면 값을 채우지 말고 clarification_note에 사용자에게 보낼 확인 질문을 쓴다.
+  clarification_note는 사용자가 그대로 읽는 문장이다. 경기 후보 목록이 비어 있다거나 selected_event를 채울 수 없다는 식의 내부 사정은 쓰지 않는다.
+  사용자가 정확한 날짜나 경기(예: "11/4 18:30 KT vs LG")를 말했다면 후보 목록이 비어 있어도 정상이다: team, date_from/date_to, duration_days만 채우고 note는 비운다 (경기는 시스템이 검색해서 고른다).
   단, 경기를 골랐고 여행 일수만 말한 경우(예: "10/28 경기로 2박 3일")는 정상이다. 여행 시작일은 시스템이 따로 묻는다.
   이때 경기일을 date_from/date_to로 넣지 말고 selected_event_number 또는 selected_event_id와 duration_days만 채운다.
 

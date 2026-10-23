@@ -58,6 +58,17 @@ def _event_in_range(event: dict | None, prefs: TripPreferences) -> bool:
         return False
 
 
+# LLM이 확인 질문 대신 내부 상태를 적을 때 자주 나오는 말 (사용자에게 보일 문장이 아니다).
+INTERNAL_NOTE_WORDS = ("후보 목록", "selected_event", "sports_events", "event_id", "State", "채울 수 없")
+
+
+def _note_is_unnecessary(note: str, text: str, resolved_days: bool, event: dict | None) -> bool:
+    """clarification_note는 "날짜가 모호/모순일 때 사용자에게 묻는 질문"이다. 사용자가 날짜를 정확히 말했거나 코드가 기간을 확정했거나
+    경기를 이미 골랐다면, 또는 내부 필드 이야기라면 사용자에게 보내지 않는다."""
+    exact_date = len(dates_in_text(text, {str(today().year)})) == 1
+    return bool(event) or resolved_days or exact_date or any(word in note for word in INTERNAL_NOTE_WORDS)
+
+
 def _recover_events(state: MyState) -> list[dict]:
     """State에 후보가 없을 때(호출자가 messages만 되돌려 보낸 경우) 이력의 마지막 경기 검색 결과에서 후보를 복구한다."""
     for message in reversed(state.get("messages") or []):
@@ -131,8 +142,8 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
             new["team"] = new_team
     if not new.get("duration_days") and (days_in_text := duration_in_text(text)):
         new["duration_days"] = days_in_text
-    if new.get("date_from") and new.get("date_to") and update.clarification_note and (days or len(named_dates) == 1):
-        changes["clarification_note"] = None  # 날짜를 코드가 확정했으면 LLM의 날짜 확인 질문은 필요 없다.
+    if update.clarification_note and _note_is_unnecessary(update.clarification_note, text, bool(days), event):
+        changes["clarification_note"] = None  # 날짜를 사용자가 정확히 말했거나 내부 사정을 늘어놓은 메모는 사용자에게 묻지 않는다.
 
     # sport_type은 기본값(baseball)이 채워지는 것이라 첫 턴(old가 비어 있음)에 변경으로 오인하지 않도록 기본값을 깔고 비교한다.
     previous = {"sport_type": "baseball", **old}
