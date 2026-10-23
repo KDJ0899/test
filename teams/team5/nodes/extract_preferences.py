@@ -17,6 +17,7 @@ from teams.team5.trip_state import (
     describe_events,
     find_event,
     first_team_in_text,
+    place_options,
     load_all_events,
     match_event_by_text,
     selected_event,
@@ -44,6 +45,8 @@ class PreferenceUpdate(BaseModel):
     interests: list[str] = Field(default_factory=list)
     selected_event_number: int | None = None
     selected_event_id: str | None = None
+    picked_place_numbers: list[int] = Field(default_factory=list)  # 안내한 관광지 후보 중 고른 번호
+    picked_restaurant_numbers: list[int] = Field(default_factory=list)  # 안내한 식당 후보 중 고른 번호
     clarification_note: str | None = None
 
 
@@ -175,6 +178,28 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     return changes
 
 
+def _describe_options(items: list[dict]) -> str:
+    return "\n".join(f"  {i}. {p['name']}" for i, p in enumerate(items, start=1)) or "  (없음)"
+
+
+def apply_place_choice(state: MyState, update: PreferenceUpdate, changes: dict) -> dict:
+    """관광지/식당 후보 안내(place_choice)에 대한 답을 반영한다 (순수 함수).
+    안내한 직후의 trip 입력은 고른 번호가 있든 없든("알아서") 선택을 마친 것으로 보고 done으로 바꾼다.
+    경기가 바뀌었거나 장소 캐시가 초기화되면 이전 안내는 무효다."""
+    choice = state.get("place_choice")
+    if not choice:
+        return changes
+    selected = changes.get("selected_event_id", state.get("selected_event_id"))
+    if not selected or selected != choice["event_id"] or changes.get("places") == []:
+        return {**changes, "place_choice": None}
+    if choice["status"] != "asked":
+        return changes
+    places, restaurants = place_options(state)
+    picked = [places[n - 1]["id"] for n in update.picked_place_numbers if 1 <= n <= len(places)]
+    picked += [restaurants[n - 1]["id"] for n in update.picked_restaurant_numbers if 1 <= n <= len(restaurants)]
+    return {**changes, "place_choice": {"event_id": selected, "status": "done", "picked_ids": [*dict.fromkeys(picked)]}}
+
+
 def make_extract_preferences_node() -> Callable[[MyState], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(PreferenceUpdate)
 
@@ -183,12 +208,14 @@ def make_extract_preferences_node() -> Callable[[MyState], Awaitable[dict]]:
             today=today_label(),
             preferences=json.dumps(state.get("trip_preferences", {}), ensure_ascii=False),
             events=describe_events(state),
+            places=_describe_options(place_options(state)[0]),
+            restaurants=_describe_options(place_options(state)[1]),
         )
         try:
             update = await structured_llm.ainvoke(
                 [SystemMessage(content=system), *state["messages"]], config={"tags": ["internal"]}
             )
-            return apply_update(state, update)
+            return apply_place_choice(state, update, apply_update(state, update))
         except Exception as exc:
             return {"error": str(exc)}
 

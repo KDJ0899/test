@@ -11,6 +11,7 @@ PERSISTED_KEYS = (
     "trip_preferences",
     "sports_events",
     "selected_event_id",
+    "place_choice",
     "places",
     "restaurants",
     "trip_plan",

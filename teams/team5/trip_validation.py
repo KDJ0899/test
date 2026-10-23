@@ -7,6 +7,10 @@ from datetime import date, datetime, timedelta
 from difflib import get_close_matches
 
 
+# 이동/휴식은 상세 일정에서 같은 문구가 하루에 여러 번 나올 수 있어 활동 중복으로 보지 않는다.
+REPEATABLE_CATEGORIES = ("이동", "휴식")
+
+
 def _parse(value: str) -> datetime | None:
     try:
         return datetime.fromisoformat(value)
@@ -20,6 +24,7 @@ def validate_trip_plan(
     duration_days: int | None = None,
     known_place_ids: set[str] | None = None,
     start_date: date | None = None,
+    required_place_ids: set[str] | None = None,
 ) -> list[str]:
     errors: list[str] = []
     if not selected_event:
@@ -69,9 +74,11 @@ def validate_trip_plan(
     if known_place_ids is not None:
         for pid in sorted({p for p in place_ids if p not in known_place_ids}):
             errors.append(f"검색 결과에 없는 장소 ID({pid})를 사용했다.")
-    keys = [(i.get("day"), i.get("activity")) for i in items]
+    keys = [(i.get("day"), i.get("activity")) for i in items if i.get("category") not in REPEATABLE_CATEGORIES]
     for key in sorted({k for k in keys if keys.count(k) > 1}, key=str):
         errors.append(f"Day {key[0]}에 같은 활동('{key[1]}')이 중복되어 있다.")
+    for pid in sorted((required_place_ids or set()) - set(place_ids)):
+        errors.append(f"사용자가 고른 장소 {pid}가 일정에 없다.")
     return errors
 
 
@@ -93,7 +100,8 @@ def repair_items(items: list[dict], event: dict, known_place_ids: set[str]) -> l
             if not close:
                 item["notes"] = "장소 정보 확인 필요" if not item.get("notes") else item["notes"] + " (장소 정보 확인 필요)"
         key = (item.get("day"), item.get("activity"))
-        if (pid and pid in seen_places) or key in seen_activities:
+        repeatable = item.get("category") in REPEATABLE_CATEGORIES
+        if (pid and pid in seen_places) or (not repeatable and key in seen_activities):
             continue
         seen_places.add(pid) if pid else None
         seen_activities.add(key)

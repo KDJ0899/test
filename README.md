@@ -24,7 +24,8 @@ uv run python scripts/run_local.py
 ```
 you> 롯데 경기 보고 여행 가고 싶어          -> 날짜 범위/여행 기간을 한 번에 질문
 you> 다음 달 토요일 중 1박 2일               -> 팀 조건 유지 + 11월 토요일 경기 후보 3개 제시
-you> 두 번째 경기로                          -> event_id 선택, 관광지/식당 검색 후 일정 작성
+you> 두 번째 경기로                          -> event_id 선택, 관광지/식당 검색 후 후보 목록을 보여주고 선택을 기다림
+you> 관광지 1, 3 / 식당 2                    -> 고른 곳을 꼭 포함해 상세 타임테이블(이동·식사·휴식 포함) 작성 ("알아서 짜줘"도 가능)
 you> 차 없이 갈 거고 둘째 날 바다 관광 추가해 줘 -> 선택 경기 유지, 일정 수정
 you> 일정 저장해 줘                          -> [승인 요청] ...
 you> 승인                                    -> teams/team5/data/saved_trips.json 에 저장 (거절이면 저장 안 함)
@@ -48,7 +49,8 @@ classify ─ trip ─> extract_preferences -> validate_preferences ─ 부족 �
         └ needs_guide ─> retrieve -> agent   (가이드 문서가 필요한 질문은 검색을 코드가 강제)
 agent ─ 승인 대상 Tool ─> request_approval -> END
       ├ 일반 Tool ─> tools -> ingest_tool_results -> agent   (최대 반복 AGENT_MAX_ITERATIONS)
-      ├ 일정 작성 단계 ─> retrieve_for_plan(고정 질의 검색 강제) -> plan_trip -> respond   (validate_trip_plan 검증, 실패 시 1회 재작성)
+      ├ 일정 작성 단계 ─> (경기당 1회) present_candidates(관광지/식당 후보 안내, 선택을 받고 END)
+      │                 └ 선택 후 ─> retrieve_for_plan(고정 질의 검색 강제) -> plan_trip -> respond   (validate_trip_plan 검증, 실패 시 1회 재작성)
       └ 최종 답 ─> respond -> END          (어느 노드든 예외는 error 노드로)
 ```
 
@@ -56,7 +58,7 @@ agent ─ 승인 대상 Tool ─> request_approval -> END
 |---|---|
 | `state.py` | `MyState`(대화 + 여행 상태) |
 | `routing.py` | 조건부 엣지 함수 전부 |
-| `nodes/` | classify, extract_preferences, validate_preferences, ask_clarification, retrieve, agent, ingest_tool_results, plan_trip, approval(4개 노드), respond, error |
+| `nodes/` | classify, extract_preferences, validate_preferences, ask_clarification, retrieve, agent, ingest_tool_results, present_candidates, plan_trip, approval(4개 노드), respond, error |
 | `trip_state.py`, `trip_validation.py` | State 파생 계산, 일정 검증(`validate_trip_plan`) |
 | `tools/` | 로컬 Tool 5개와 레지스트리(`REQUIRES_APPROVAL`) |
 | `rag/` | 문서 로딩/벡터스토어, `search_guide_docs` 툴(강제 검색 뒤 추가로 찾을 때 Agent가 쓰는 보충용) |
@@ -66,6 +68,7 @@ State 관리 요점:
 - 턴 단위 값(`intent`, `missing_fields`, `event_notice`, `retrieved_docs`, `error`, `answer`)은 `classify`가 매 턴 초기화하고, 여행 상태(`trip_preferences`, `sports_events`, `selected_event_id`, `trip_plan`, `pending_approval` ...)는 유지한다.
 - 경기를 직접 지목하면("11/4 18:30 KT vs LG", 날짜 형식은 2026-11-04 / 11/4 / 11월 4일) 후보 목록 없이도 `ingest_tool_results`가 검색 결과에서 그 경기를 바로 고른다. 검색 결과에 없으면 전체 일정에서 다시 찾고, 그래도 없으면 같은 날짜·비슷한 시각 경기와 언급한 팀의 경기를 후보로 담아 `event_notice`로 "요청한 경기가 없다"고 알린다. 시각을 말하면 정확히 일치해야 한다.
 - 여행 날짜를 일(日)만 말하면("3~5일로 갈 거야") 경기의 달에 붙여 11/3~11/5로 해석하고, 경기일만 말하면 그 하루를 검색 범위로 쓴다. 경기를 고른 2일 이상 여행에 날짜 범위가 여행 기간과 맞지 않으면 `trip_start`(여행 날짜)를 묻는다.
+- 경기를 고르면 일정을 짜기 전에 `present_candidates`가 관광지·식당 후보를 번호로 보여주고 턴을 끝낸다 (`place_choice`: asked -> done). 다음 턴의 답(번호 또는 "알아서")이 오면 `plan_trip`이 고른 장소를 반드시 포함해 이동·식사·체크인까지 나눈 상세 일정을 만든다. 경기가 바뀌면 다시 묻고, 일정 수정은 다시 묻지 않는다.
 - 팀/날짜/요일이 바뀌면 후보·선택·일정을 무효화하고, 인원/이동수단/관심사만 바뀌면 선택 경기는 유지한 채 일정만 다시 만든다.
 - 승인은 `interrupt()` 없이 `pending_approval`을 State에 저장하고 다음 턴 "승인/거절"로 처리한다. 승인 시 저장된 인자 그대로 실행하며, 대기 중 다른 요청이 오면 실행하지 않고 다시 묻는다.
 
@@ -89,7 +92,7 @@ uv run pytest
 
 `build_graph()`와 `await graph.ainvoke({"messages": history, "user_input": query})`로 호출하며 (LLM 노드가 async라 동기 `invoke`는 쓸 수 없다), `result["answer"]`로 답을 꺼낸다. 호출자는 결과 State를 되돌려 보낼 필요가 없고, UI가 가진 이전 대화 이력만 `messages`로 보내면 된다.
 
-여행 상태(`trip_preferences`, `sports_events`, `selected_event_id`, `places`, `restaurants`, `trip_plan`, `trip_status`, `pending_approval`)는 턴이 끝날 때 `save_session` 노드가 `teams/team5/session.py`의 보관소에 저장하고, 다음 턴 `classify`가 복원한다.
+여행 상태(`trip_preferences`, `sports_events`, `selected_event_id`, `place_choice`, `places`, `restaurants`, `trip_plan`, `trip_status`, `pending_approval`)는 턴이 끝날 때 `save_session` 노드가 `teams/team5/session.py`의 보관소에 저장하고, 다음 턴 `classify`가 복원한다.
 UI의 "새 대화"처럼 `messages`가 비어 있으면 새 대화로 보고 보관소를 초기화한다. 대화 ID가 없어서 사용자 1명만 가정하며, 호출자가 State 값을 직접 넘기면 그 값이 보관소보다 우선한다.
 **이 저장소에서 FastAPI 코드는 수정하지 않았다.**
 

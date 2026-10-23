@@ -172,6 +172,14 @@ def compute_trip_status(state: MyState) -> str:
     return "searching"
 
 
+PLACE_OPTION_LIMIT = 10  # 사용자에게 번호로 보여주는 후보 수 (관광지/식당 각각)
+
+
+def place_options(state: MyState) -> tuple[list[dict], list[dict]]:
+    """사용자에게 번호를 붙여 보여주는 관광지/식당 후보. 안내 문구와 번호 해석이 같은 목록을 쓰도록 한 곳에서 만든다."""
+    return (state.get("places") or [])[:PLACE_OPTION_LIMIT], (state.get("restaurants") or [])[:PLACE_OPTION_LIMIT]
+
+
 def describe_event(event: dict) -> str:
     kind = "가상 샘플 데이터" if event.get("is_demo") else event.get("source_type", "")
     return (

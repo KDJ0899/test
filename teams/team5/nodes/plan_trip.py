@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 
 from app.llm import get_llm
 from teams.team5 import config
-from teams.team5.prompts import PLAN_FAILED_MESSAGE, PLAN_NOTICE, PLAN_RETRY_FEEDBACK, PLAN_SYSTEM_PROMPT
+from teams.team5.prompts import PLAN_FAILED_MESSAGE, PLAN_WANTED_NONE, PLAN_NOTICE, PLAN_RETRY_FEEDBACK, PLAN_SYSTEM_PROMPT
 from teams.team5.state import MyState
 from teams.team5.trip_state import describe_event, selected_event, trip_start_date
 from teams.team5.trip_validation import repair_items, validate_trip_plan
@@ -26,6 +26,7 @@ class PlanItemDraft(BaseModel):
     place_id: str | None = None
     event_id: str | None = None
     activity: str
+    category: str = "기타"  # 이동 / 식사 / 관광 / 경기 / 휴식 / 기타
     notes: str = ""
     is_estimated: bool = True
 
@@ -70,7 +71,8 @@ def format_trip_plan(plan: dict, state: MyState) -> str:
             span = f"{item['start_at'][11:16]}~{item['end_at'][11:16]}" + (" (예상)" if item["is_estimated"] else "")
             place = f" [{catalog[item['place_id']]}]" if item.get("place_id") in catalog else ""
             note = f" - {item['notes']}" if item["notes"] else ""
-            lines.append(f"- {span} {item['activity']}{place}{note}")
+            tag = f"[{item['category']}] " if item.get("category") and item["category"] != "기타" else ""
+            lines.append(f"- {span} {tag}{item['activity']}{place}{note}")
     if plan["notes"]:
         lines.append(f"\n{plan['notes']}")
     demo = any(s["is_demo"] for s in plan["sources"])
@@ -88,7 +90,10 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
         prefs = state.get("trip_preferences", {})
         duration = prefs.get("duration_days") or 2
         start_date = trip_start_date(event, prefs)  # 경기 전후 날짜를 포함한 여행 기간이면 그 시작일이 Day 1
-        known_ids = {p["id"] for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
+        catalog = {p["id"]: p for p in [*(state.get("places") or []), *(state.get("restaurants") or [])]}
+        known_ids = set(catalog)
+        picked = [pid for pid in (state.get("place_choice") or {}).get("picked_ids", []) if pid in catalog]  # 사용자가 고른 장소
+        wanted = ", ".join(f"{catalog[pid]['name']}({pid})" for pid in picked) or PLAN_WANTED_NONE
 
         errors: list[str] = []
         try:
@@ -103,6 +108,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
                     places=json.dumps(state.get("places") or [], ensure_ascii=False),
                     restaurants=json.dumps(state.get("restaurants") or [], ensure_ascii=False),
                     guide="\n".join(d.page_content for d in state.get("retrieved_docs") or []) or "(없음)",
+                    wanted=wanted,
                     feedback=feedback,
                 )
                 draft = await structured_llm.ainvoke(
@@ -112,7 +118,7 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
                 fixed = repair_items([i.model_dump() for i in draft.items], event, known_ids)
                 draft = draft.model_copy(update={"items": [PlanItemDraft(**i) for i in fixed]})
                 plan = build_plan(draft, event, duration, state)
-                errors = validate_trip_plan(plan, event, duration, known_ids, start_date)
+                errors = validate_trip_plan(plan, event, duration, known_ids, start_date, set(picked))
                 if not errors:
                     answer = format_trip_plan(plan, state)
                     return {

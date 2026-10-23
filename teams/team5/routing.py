@@ -43,8 +43,9 @@ def route_after_validate(state: MyState) -> Literal["ask_clarification", "agent"
 
 def route_after_agent(
     state: MyState,
-) -> Literal["error", "request_approval", "tools", "retrieve_for_plan", "respond"]:
-    """tool_calls가 있으면 승인 대상 여부로 request_approval / tools를 고르고, 없으면 일정 작성 단계인지 보고 retrieve_for_plan(가이드 검색 후 plan_trip) / respond."""
+) -> Literal["error", "request_approval", "tools", "present_candidates", "retrieve_for_plan", "respond"]:
+    """tool_calls가 있으면 승인 대상 여부로 request_approval / tools를 고르고, 없으면 일정 작성 단계인지 보고
+    present_candidates(관광지/식당 후보를 보여주고 고르게 함, 경기당 1회) / retrieve_for_plan(가이드 검색 후 plan_trip) / respond."""
     if state.get("error"):
         return "error"
     calls = _tool_calls(state)
@@ -54,6 +55,10 @@ def route_after_agent(
             return "request_approval"
         return "tools"
     if state.get("intent") == "trip" and state.get("trip_status") == "planning" and state.get("selected_event_id"):
+        choice = state.get("place_choice")
+        has_candidates = bool(state.get("places") or state.get("restaurants"))
+        if has_candidates and not (choice and choice["event_id"] == state["selected_event_id"]):
+            return "present_candidates"  # 후보를 아직 안 보여줬다: 사용자가 원하는 곳을 고르게 하고 이번 턴을 끝낸다.
         return "retrieve_for_plan"
     return "respond"
 

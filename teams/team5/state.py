@@ -36,6 +36,7 @@ class MyState(TypedDict, total=False):
     sports_events: list[dict[str, Any]]  # 검색 캐시 (번호 = 리스트 순서 + 1)
     event_notice: str | None  # 이번 턴 경기 검색에 대한 알림 (예: 지목한 경기가 없어 대안을 담음). 턴마다 초기화
     selected_event_id: str | None
+    place_choice: dict[str, Any] | None  # 관광지/식당 후보 안내 상태: {event_id, status: asked|done, picked_ids}. 경기가 바뀌면 무효
     places: list[dict[str, Any]]
     restaurants: list[dict[str, Any]]
     trip_plan: dict[str, Any] | None

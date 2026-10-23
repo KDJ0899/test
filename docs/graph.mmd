@@ -11,6 +11,7 @@ graph TD;
 	ask_clarification(ask_clarification)
 	retrieve(retrieve)
 	retrieve_for_plan(retrieve_for_plan)
+	present_candidates(present_candidates)
 	agent(agent)
 	tools(tools)
 	ingest_tool_results(ingest_tool_results)
@@ -26,7 +27,9 @@ graph TD;
 	agent -.-> error;
 	agent -.-> request_approval;
 	agent -.-> respond;
+	agent -.-> present_candidates;
 	agent -.-> retrieve_for_plan;
+	present_candidates --> __end__;
 	agent -.-> tools;
 	classify -.-> agent;
 	classify -.-> error;

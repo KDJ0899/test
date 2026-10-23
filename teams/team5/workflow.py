@@ -17,6 +17,7 @@ from teams.team5.nodes.error import error_node
 from teams.team5.nodes.extract_preferences import make_extract_preferences_node
 from teams.team5.nodes.ingest_tool_results import ingest_tool_results_node
 from teams.team5.nodes.plan_trip import make_plan_trip_node
+from teams.team5.nodes.present_candidates import present_candidates_node
 from teams.team5.nodes.respond import respond_node
 from teams.team5.nodes.save_session import save_session_node
 from teams.team5.nodes.retrieve import make_retrieve_node
@@ -76,6 +77,7 @@ def build_graph() -> CompiledStateGraph:
     graph.add_node("agent", make_agent_node(tools))
     graph.add_node("tools", _make_tools_node(tools))  # ToolNode: 승인이 필요 없는 Tool 실행
     graph.add_node("ingest_tool_results", ingest_tool_results_node)
+    graph.add_node("present_candidates", present_candidates_node)  # 관광지/식당 후보 안내 (일정 작성 전, 사용자 선택을 받고 턴 종료)
     graph.add_node("plan_trip", make_plan_trip_node())
     graph.add_node("request_approval", request_approval_node)
     graph.add_node("resolve_approval", resolve_approval_node)
@@ -92,7 +94,7 @@ def build_graph() -> CompiledStateGraph:
     graph.add_conditional_edges("extract_preferences", route_after_extract, ["error", "validate_preferences"])
     graph.add_conditional_edges("validate_preferences", route_after_validate, ["ask_clarification", "agent"])
     graph.add_conditional_edges("agent", route_after_agent,
-        ["error", "request_approval", "tools", "retrieve_for_plan", "respond"])
+        ["error", "request_approval", "tools", "present_candidates", "retrieve_for_plan", "respond"])
     graph.add_conditional_edges("retrieve", route_after_retrieve, ["error", "agent"])
     graph.add_conditional_edges("retrieve_for_plan", route_after_retrieve_for_plan, ["error", "plan_trip"])
     graph.add_conditional_edges("tools", route_after_tools, ["error", "ingest_tool_results"])
@@ -105,7 +107,7 @@ def build_graph() -> CompiledStateGraph:
 
     # 사용자에게 질문/승인 요청을 내보내는 노드와 respond/error는 턴을 끝낸다. 끝내기 전에 save_session이 여행 상태를 보관한다.
     # (호출자는 messages만 보내므로 다음 턴 classify가 보관한 상태를 복원한다.)
-    for node in ("ask_clarification", "request_approval", "ask_approval_again", "respond", "error"):
+    for node in ("ask_clarification", "present_candidates", "request_approval", "ask_approval_again", "respond", "error"):
         graph.add_edge(node, "save_session")
     graph.add_edge("save_session", END)
 

@@ -34,9 +34,16 @@ EXTRACT_SYSTEM_PROMPT = """사용자의 여행 조건을 추출한다. 기준 �
   단, 경기를 골랐고 여행 일수만 말한 경우(예: "10/28 경기로 2박 3일")는 정상이다. 여행 시작일은 시스템이 따로 묻는다.
   이때 경기일을 date_from/date_to로 넣지 말고 selected_event_number 또는 selected_event_id와 duration_days만 채운다.
 
+- 관광지/식당 후보를 보여주고 고르게 한 직후의 답이면, 고른 번호를 picked_place_numbers(관광지 번호), picked_restaurant_numbers(식당 번호)에 채운다.
+  "알아서 짜줘"처럼 고르지 않았으면 비워 둔다.
+
 현재 저장된 조건: {preferences}
 경기 후보:
-{events}"""
+{events}
+안내한 관광지 후보:
+{places}
+안내한 식당 후보:
+{restaurants}"""
 
 TRIP_CONTEXT_TEMPLATE = """[여행 계획 상태] (기준 날짜: {today})
 - 진행 단계: {trip_status}
@@ -65,6 +72,22 @@ RAG_CONTEXT_TEMPLATE = """다음은 검색된 가이드 문서다. 이 내용을
 EVENT_NOT_FOUND_NOTICE = "사용자가 말한 경기는 일정에 없다. 같은 날짜·비슷한 시간대 경기와 언급한 팀의 가까운 경기를 후보로 담았다."
 NO_NOTICE = "(없음)"
 
+# --- 관광지/식당 후보 안내 (present_candidates): 일정을 짜기 전에 후보를 보여주고 사용자가 원하는 곳을 고르게 한다 ---
+PLACE_CHOICE_TEMPLATE = """선택하신 경기({event})에 맞춰 일정을 짜기 전에, 둘러볼 만한 곳 후보예요.
+
+**관광지**
+{places}
+
+**식당**
+{restaurants}
+
+꼭 넣고 싶은 곳의 번호를 알려주세요. (예: 관광지 1, 3 / 식당 2)
+고르지 않으면 "알아서 짜줘"라고 해주세요. 후보 중에서 어울리는 곳으로 상세 일정을 만들어 드릴게요."""
+PLACE_LINE_TEMPLATE = "{number}. {name} ({kind}, 약 {minutes}분)"
+PLACE_NONE = "- (후보 없음)"
+PLACE_CATEGORY_LABELS = {"sea": "바다", "culture": "문화", "market": "시장", "nature": "자연"}
+PLAN_WANTED_NONE = "(없음: 후보 중에서 알아서 고른다)"
+
 # 일정 작성 직전의 고정 검색 질의 (조건에서 만든다, LLM 판단 없음)
 PLAN_GUIDE_QUERY_TEMPLATE = "경기 연계 여행 일정 구성 원칙과 {transport} 동선"
 TRANSPORT_LABELS = {"public_transit": "대중교통", "car": "자차", "unspecified": "이동"}
@@ -79,6 +102,14 @@ PLAN_SYSTEM_PROMPT = """여행 일정을 작성한다. 아래 데이터에 있�
 - place_id는 장소/식당 후보의 id만 쓰고 같은 장소를 중복해서 넣지 않는다.
 - 이동 시간과 영업시간은 확인할 수 없으므로 정밀한 수치를 쓰지 않고 notes에 "확인 필요"라고 적는다.
 - 사용자의 이동수단, 인원, 예산, 관심사 요청을 반영한다.
+- 하루를 아침부터 밤까지 30분~1시간 단위의 상세 타임테이블로 쓴다. 하루에 최소 7개 이상의 항목을 넣고, "오전/점심/저녁"처럼 뭉뚱그리지 않는다.
+- 이동은 별도 항목으로 쓴다 (예: "숙소에서 수원화성으로 이동 (대중교통)", category=이동, place_id 없음). 이동 시간은 notes에 "확인 필요"로 적고, 이동 시간을 감안해 앞뒤 항목 시각을 띄운다.
+- 아침, 점심, 저녁 식사를 모두 넣는다. 식당은 식당 후보의 id를 쓰고, 카페/간식은 후보가 있을 때만 넣는다.
+- 첫날은 도착과 숙소 체크인, 마지막 날은 체크아웃과 귀가 항목을 넣는다. 숙소는 실제 이름을 지어내지 않고 "숙소"로만 쓴다 (place_id 없음).
+- 경기 당일은 경기장 이동, 입장, 경기, 경기 후 이동/귀가를 구분해서 쓴다.
+- 장소 항목의 길이는 후보의 estimated_duration_min을 참고한다. activity에는 무엇을 하는지 한 줄로 구체적으로 쓰고(예: "화성행궁 관람"), notes에는 팁/주의점을 쓴다.
+- 각 항목의 category는 이동 / 식사 / 관광 / 경기 / 휴식 / 기타 중 하나다.
+- 사용자가 꼭 넣고 싶다고 고른 장소는 모두 일정에 포함한다: {wanted}
 - place_id는 아래 후보 JSON의 "id" 값을 글자 그대로 복사한다. 새 ID를 만들거나 이름으로 지어내지 않는다. 후보에 없는 장소는 일정에 넣지 않는다.
 - 같은 날 항목은 시간순으로 쓰고, 이동 시간을 고려해 앞 항목의 end_at이 다음 항목의 start_at보다 늦지 않게 한다. 같은 장소는 한 번만 넣는다.
 
