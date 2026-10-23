@@ -7,6 +7,7 @@ from typing import Literal
 
 from app.llm import get_llm
 from teams.team5.prompts import CLASSIFY_SYSTEM_PROMPT
+from teams.team5.session import restore_session
 from teams.team5.state import MyState
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
@@ -24,11 +25,15 @@ def make_classify_node() -> Callable[[MyState], Awaitable[dict]]:
     structured_llm = get_llm().with_structured_output(IntentClassification)
 
     async def classify_node(state: MyState) -> dict:
+        # 호출자가 messages만 보내므로 이전 턴의 여행 상태는 보관소에서 복원한다 (이력이 비면 새 대화로 보고 초기화).
+        restored = restore_session(state)
+        state = {**state, **restored}
         user_message = HumanMessage(content=state["user_input"])
         # 호출자가 넘겨준 이전 messages 뒤에 이번 입력만 add_messages로 한 번 추가한다.
         # 턴 단위 값(intent/missing_fields/retrieved_docs/error/answer)은 여기서 초기화하고,
         # 여행 상태(trip_preferences, sports_events, trip_plan, pending_approval ...)는 건드리지 않아 다음 턴에도 유지된다.
         reset = {
+            **restored,
             "messages": [user_message],
             "retrieved_docs": [],
             "needs_guide": False,

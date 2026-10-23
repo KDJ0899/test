@@ -1,6 +1,6 @@
 # workflow 그래프 조립. build_graph()가 툴 로딩, RAG 인덱싱, 노드/엣지 연결을 하고 컴파일된 그래프를 돌려준다.
-# 체크포인터 없이 컴파일한다. ainvoke가 돌려주는 전체 State(대화, 여행 조건, 후보, 일정, 승인 대기)를
-# 호출자가 보관했다가 다음 턴에 user_input과 함께 다시 넘기면 대화가 이어진다.
+# 체크포인터 없이 컴파일한다. 호출자는 messages(이력)와 user_input만 보내고, 이력에 없는 여행 상태(조건, 후보, 일정, 승인 대기)는
+# session.py의 프로세스 내 보관소가 턴 사이에 이어준다 (1명 사용 로컬 환경 전용, "새 대화"로 이력이 비면 초기화).
 # LLM을 부르는 노드(classify, extract_preferences, agent, plan_trip)는 async라서 그래프는 ainvoke로 호출해야 한다.
 
 from app.llm import get_embeddings
@@ -18,6 +18,7 @@ from teams.team5.nodes.extract_preferences import make_extract_preferences_node
 from teams.team5.nodes.ingest_tool_results import ingest_tool_results_node
 from teams.team5.nodes.plan_trip import make_plan_trip_node
 from teams.team5.nodes.respond import respond_node
+from teams.team5.nodes.save_session import save_session_node
 from teams.team5.nodes.retrieve import make_retrieve_node
 from teams.team5.nodes.validate_preferences import validate_preferences_node
 from teams.team5.rag.loader import load_and_split_docs
@@ -82,6 +83,7 @@ def build_graph() -> CompiledStateGraph:
     graph.add_node("execute_approved_tool", execute_approved_tool_node)
     graph.add_node("respond", respond_node)
     graph.add_node("error", error_node)
+    graph.add_node("save_session", save_session_node)
 
     graph.add_edge(START, "classify")
     # 조건부 엣지: 분기 판단은 전부 routing.py의 함수가 하고, 여기서는 반환값 -> 노드 연결만 선언한다.
@@ -101,8 +103,10 @@ def build_graph() -> CompiledStateGraph:
     graph.add_conditional_edges("execute_approved_tool", route_after_execute,
         ["error", "ingest_tool_results", "respond"])
 
-    # 사용자에게 질문/승인 요청을 내보내는 노드와 respond/error는 턴을 끝낸다. 다음 턴은 State가 이어받는다.
+    # 사용자에게 질문/승인 요청을 내보내는 노드와 respond/error는 턴을 끝낸다. 끝내기 전에 save_session이 여행 상태를 보관한다.
+    # (호출자는 messages만 보내므로 다음 턴 classify가 보관한 상태를 복원한다.)
     for node in ("ask_clarification", "request_approval", "ask_approval_again", "respond", "error"):
-        graph.add_edge(node, END)
+        graph.add_edge(node, "save_session")
+    graph.add_edge("save_session", END)
 
     return graph.compile()

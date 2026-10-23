@@ -78,12 +78,15 @@ uv run pytest
 
 | 항목 | CLAUDE.md (기존) | 이 구현 (명세서 0장) |
 |---|---|---|
-| 대화 이력 | UI가 `messages`로 매번 전달, 서버는 기억 안 함 | 호출자가 `invoke` 결과(전체 State)를 보관했다가 다음 턴에 `user_input`과 함께 다시 전달 |
+| 대화 이력 | UI가 `messages`로 매번 전달, 서버는 기억 안 함 | 호출자는 CLAUDE.md 계약대로 `messages`와 `user_input`만 전달. 이력에 없는 여행 상태는 `session.py`의 프로세스 내 보관소가 이어줌 (1명 사용 로컬 환경 전용) |
 | 체크포인터 | 불필요 | 불필요 (체크포인터 없음) |
 | 승인 | 이력 속 승인 요청 문구로 판정 | State의 `pending_approval`로 판정 |
 | 툴 | 범용 샘플 툴 | 경기/관광지/식당 검색, 일정 저장 (`calculate`, `search_items`, `save_note` 제거) |
 
-`build_graph()`와 `await graph.ainvoke`로 호출하며 (LLM 노드가 async라 동기 `invoke`는 쓸 수 없다), 결과는 `answer` 하나가 아니라 전체 State다 (`result["answer"]`로 답을 꺼내고, 결과 전체를 다음 요청에 되돌려 보낸다).
+`build_graph()`와 `await graph.ainvoke({"messages": history, "user_input": query})`로 호출하며 (LLM 노드가 async라 동기 `invoke`는 쓸 수 없다), `result["answer"]`로 답을 꺼낸다. 호출자는 결과 State를 되돌려 보낼 필요가 없고, UI가 가진 이전 대화 이력만 `messages`로 보내면 된다.
+
+여행 상태(`trip_preferences`, `sports_events`, `selected_event_id`, `places`, `restaurants`, `trip_plan`, `trip_status`, `pending_approval`)는 턴이 끝날 때 `save_session` 노드가 `teams/team5/session.py`의 보관소에 저장하고, 다음 턴 `classify`가 복원한다.
+UI의 "새 대화"처럼 `messages`가 비어 있으면 새 대화로 보고 보관소를 초기화한다. 대화 ID가 없어서 사용자 1명만 가정하며, 호출자가 State 값을 직접 넘기면 그 값이 보관소보다 우선한다.
 **이 저장소에서 FastAPI 코드는 수정하지 않았다.**
 
 ## 남은 제약
@@ -93,4 +96,4 @@ uv run pytest
 - 웹 검색(Tavily)은 제거했다. 외부 API는 호출하지 않고, 경기가 없으면 조건 변경을 안내한다.
 - 승인 요청 한 번에 Tool 하나만 처리한다. 한 응답에 승인 대상 Tool이 여러 개면 첫 번째만 묻고 나머지는 실행하지 않는다.
 - 일정은 경기일을 Day 1로 가정한다 (경기 전날 도착 일정 미지원). 골프 등 다른 종목은 `sport_type`만 유지하고 미구현.
-- State는 프로세스 메모리에만 있다. 재시작하면 사라진다.
+- 여행 상태 보관소는 프로세스 메모리에만 있고 대화를 구분하지 않는다. 서버를 재시작하면 사라지고, 브라우저 탭을 여러 개 열어 동시에 대화하면 상태가 섞인다. UI에서 마지막 턴을 지우거나 다시 생성하면 보관소가 한 턴 앞서게 된다.

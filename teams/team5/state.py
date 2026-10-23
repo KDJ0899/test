@@ -1,6 +1,6 @@
 # 그래프 전체에서 공유되는 State 정의.
-# 체크포인터가 없으므로 호출자가 invoke 결과(전체 State)를 들고 있다가 다음 턴 입력에 user_input과 함께 다시 넘긴다.
-# 대화(messages)와 여행 상태(trip_preferences, sports_events, trip_plan ...)는 그대로 이어지고,
+# 체크포인터가 없고 호출자는 messages만 보낸다. 여행 상태(trip_preferences, sports_events, trip_plan ...)는
+# session.py의 보관소에 저장되었다가 classify에서 복원되어 다음 턴으로 이어지고,
 # 턴 단위 값(intent, missing_fields, retrieved_docs, error, answer)은 classify 노드가 매 턴 초기화한다.
 
 from typing import Annotated, Any, Literal
