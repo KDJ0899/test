@@ -3,6 +3,7 @@
 # 검색 조건(팀/날짜/요일)이 바뀌면 경기 후보·선택·일정을 무효화하고, 부가 조건만 바뀌면 선택 경기는 유지한 채 일정만 다시 만든다.
 
 import json
+import re
 from datetime import date
 from collections.abc import Awaitable, Callable
 
@@ -11,8 +12,11 @@ from app.llm import get_llm
 from teams.team5.prompts import EXTRACT_SYSTEM_PROMPT
 from teams.team5.state import MyState, TripPreferences
 from teams.team5.trip_state import date_span_days, describe_events, find_event, selected_event
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
+
+DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
+TIME_PATTERN = re.compile(r"(\d{1,2}):(\d{2})")
 
 # 이 값이 바뀌면 이전에 검색한 경기 후보는 더 이상 유효하지 않다.
 SEARCH_KEYS = ("sport_type", "team", "date_from", "date_to", "preferred_weekdays")
@@ -47,8 +51,36 @@ def _event_in_range(event: dict | None, prefs: TripPreferences) -> bool:
         return False
 
 
+def _recover_events(state: MyState) -> list[dict]:
+    """State에 후보가 없을 때(호출자가 messages만 되돌려 보낸 경우) 이력의 마지막 경기 검색 결과에서 후보를 복구한다."""
+    for message in reversed(state.get("messages") or []):
+        if isinstance(message, ToolMessage) and message.name == "search_sports_events":
+            try:
+                return json.loads(message.content)["data"]["events"]
+            except (TypeError, KeyError, ValueError):
+                continue
+    return []
+
+
+def _match_event_by_text(events: list[dict], text: str) -> str | None:
+    """사용자 문장에 YYYY-MM-DD 날짜(와 HH:MM 시각)가 있으면 후보 중 정확히 하나로 좁혀지는 경기의 id를 돌려준다.
+    LLM이 selected_event_id를 못 채워도 "2026-10-28 (수) 18:30 경기로 ..." 같은 선택을 코드가 인식하게 하는 안전망이다."""
+    dates = set(DATE_PATTERN.findall(text))
+    if len(dates) != 1:
+        return None
+    matches = [e for e in events if e["start_at"][:10] in dates]
+    if len(matches) > 1 and (found := TIME_PATTERN.search(text)):
+        hhmm = f"{int(found[1]):02d}:{found[2]}"
+        matches = [e for e in matches if e["start_at"][11:16] == hhmm]
+    return matches[0]["id"] if len(matches) == 1 else None
+
+
 def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
     """PreferenceUpdate를 기존 State에 병합한 State 변경분을 반환한다 (순수 함수)."""
+    recovered: list[dict] = []
+    if not state.get("sports_events"):
+        recovered = _recover_events(state)
+        state = {**state, "sports_events": recovered}  # 아래 find_event가 복구한 후보를 보게 한다.
     old: TripPreferences = state.get("trip_preferences", {})
     new: TripPreferences = {"sport_type": "baseball", **old}
 
@@ -62,6 +94,8 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
         new["interests"] = [*dict.fromkeys([*old.get("interests", []), *update.interests])]
 
     changes: dict = {"trip_preferences": new, "clarification_note": update.clarification_note}
+    if recovered:
+        changes["sports_events"] = recovered
 
     # 이번 입력에서 고른 경기를 먼저 확정한다 (번호 또는 event_id, 현재 후보에 실제로 있을 때만).
     # 날짜 변경을 "검색 조건 변경"으로 처리하기 전에 해야, "10/28 경기로 2박 3일"처럼 선택과 날짜를 함께 말해도 선택이 지워지지 않는다.
@@ -71,6 +105,8 @@ def apply_update(state: MyState, update: PreferenceUpdate) -> dict:
         chosen_id = update.selected_event_id
     elif update.selected_event_number and 1 <= update.selected_event_number <= len(events):
         chosen_id = events[update.selected_event_number - 1]["id"]
+    else:
+        chosen_id = _match_event_by_text(events, state.get("user_input", ""))
     new_choice = bool(chosen_id) and chosen_id != state.get("selected_event_id")
 
     # sport_type은 기본값(baseball)이 채워지는 것이라 첫 턴(old가 비어 있음)에 변경으로 오인하지 않도록 기본값을 깔고 비교한다.
