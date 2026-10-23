@@ -66,13 +66,14 @@ def format_trip_plan(plan: dict, state: MyState) -> str:
     if event:
         lines.append(f"경기: {describe_event(event)}")
     for day in range(1, plan["duration_days"] + 1):
-        lines.append(f"\n**Day {day}**")
+        lines.append(f"\n**Day {day}**\n")
+        lines.append("| 시간 | 구분 | 일정 | 장소 | 비고 |")  # 채팅 UI가 마크다운 표로 그리도록 Day별 표로 만든다
+        lines.append("|---|---|---|---|---|")
         for item in sorted((i for i in plan["items"] if i["day"] == day), key=lambda i: i["start_at"]):
             span = f"{item['start_at'][11:16]}~{item['end_at'][11:16]}" + (" (예상)" if item["is_estimated"] else "")
-            place = f" [{catalog[item['place_id']]}]" if item.get("place_id") in catalog else ""
-            note = f" - {item['notes']}" if item["notes"] else ""
-            tag = f"[{item['category']}] " if item.get("category") and item["category"] != "기타" else ""
-            lines.append(f"- {span} {tag}{item['activity']}{place}{note}")
+            place = catalog[item["place_id"]] if item.get("place_id") in catalog else ""
+            cells = [span, item.get("category") or "기타", item["activity"], place, item["notes"] or ""]
+            lines.append("| " + " | ".join(c.replace("|", "/").replace("\n", " ") for c in cells) + " |")
     if plan["notes"]:
         lines.append(f"\n{plan['notes']}")
     demo = any(s["is_demo"] for s in plan["sources"])
