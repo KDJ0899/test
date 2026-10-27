@@ -380,3 +380,26 @@ needs_guide: 가이드 문서(야구장 준비물, 관람 방법, 여행 원칙,
 | `PLACE_CHOICE_TEMPLATE` | `present_candidates` | 관광지/식당 후보 안내와 번호 선택 요청 |
 | `PLAN_NOTICE`, `PLAN_FAILED_MESSAGE` | `plan_trip` | 일정 하단 고지(가상 데이터, 확인 필요) / 일정 생성 실패 안내 |
 | `ERROR_TEMPLATE` | `handle_error` | 오류 안내 |
+
+---
+
+## 3. Tool 구성
+
+모든 Tool은 외부 API 없이 저장소 안의 데이터만 읽는다. 결과는 `{status, source, data, error?}` 형식의 JSON 문자열로 통일했고, `ingest_tool_results`가 이 형식을 읽어 State 캐시에 반영한다. 실행은 `tools` 노드(`ToolNode`)가 맡으며, agent가 `trip`/`qa` 의도일 때만 바인딩된다. 모두 조회(읽기) 전용이라 사용자 승인이 필요 없다.
+
+| Tool | 종류 | 인자 | 설명 | 데이터 | State 반영 |
+|---|---|---|---|---|---|
+| `get_current_datetime` | 조회 (인자 없음) | 없음 | 현재 날짜·시간·요일·타임존을 반환한다. "다음 달", "이번 주" 같은 상대 날짜를 해석할 때 먼저 쓴다. `TODAY_OVERRIDE`로 기준일 고정 가능 | 시스템 시계 | 없음 |
+| `search_sports_events` | 조회 | `sport_type`, `team`, `start_date`, `end_date`, `city`, `weekdays` | 팀·날짜 범위·도시·요일로 경기 일정을 검색한다. 여행할 경기를 찾거나 경기 일정을 물어볼 때 쓴다. 0건이면 경기를 지어내지 않고 그대로 알린다 | `data/sports_events.json` (가상 샘플, `is_demo=true`) | `sports_events` (경기 후보, 번호 = 순서 + 1) |
+| `search_places` | 조회 | `city`, `category`, `near_venue`, `limit` | 도시의 관광지를 검색한다. `category`는 sea/culture/market/nature. `near_venue`를 주면 경기장 근처 장소를 앞에 둔다 (제외하지는 않음) | `data/tourist_places.json` (가상 샘플) | `places` (id 기준 병합) |
+| `search_restaurants` | 조회 | `city`, `cuisine`, `near_venue`, `limit` | 도시의 식당을 검색한다. `cuisine`은 음식 종류(예: 돼지국밥, 회). 영업시간 정보는 없다 | `data/restaurants.json` (가상 샘플) | `restaurants` (id 기준 병합) |
+| `search_guide_docs` | 조회 (RAG, 보충용) | `query` | 야구장 준비물, 관람 방법, 여행 일정 원칙, 대중교통 같은 가이드 문서를 의미 검색한다. 상위 `RAG_TOP_K`개를 돌려준다. 실제 경기 일정은 이 Tool이 아니라 `search_sports_events`로 확인해야 한다 | `data/docs/*.md` 8개 (`InMemoryVectorStore`, `build_graph()`에서 1회 인덱싱) | `retrieved_docs` (respond가 출처 표시) |
+
+Tool 사용 방식
+
+- **조회 Tool 4개**(`get_current_datetime`, `search_*`)는 `load_tools()`가 돌려주는 로컬 Tool 목록(`tools/local_tools.py`)이다. `search_guide_docs`는 벡터스토어가 필요해서 `build_graph()`가 만들어 목록에 덧붙인다.
+- **가이드 검색은 두 경로로 쓰인다.** 코드가 강제하는 검색(`retrieve`, `retrieve_for_plan` 노드)이 기본이고, `search_guide_docs` Tool은 agent가 문서가 더 필요할 때 부르는 보충 수단이다. 강제 검색과 중복되는 문서는 내용 기준으로 걸러진다.
+- **Tool 반복 한도**는 `AGENT_MAX_ITERATIONS`(기본 10)이다. 넘으면 LLM을 호출하지 않고 `handle_error`로 간다.
+- **Tool 실패**는 예외를 던지지 않고 `status="error"` 결과로 돌려주며, 실패 결과는 State 캐시에 반영하지 않는다.
+- **제거된 Tool**: `save_trip_plan`(일정 파일 저장, 사용자 승인 대상)은 이 버전에서 제거했다.
+
