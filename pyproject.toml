@@ -4,11 +4,12 @@ version = "0.1.0"
 description = "LangGraph 기반 AI Agent workflow 예제 (레퍼런스 코드)"
 requires-python = ">=3.11"
 dependencies = [
-    "langgraph==0.2.60",
-    "langchain-core==0.3.29",
-    "langchain==0.3.14",
-    "langchain-openai==0.2.14",
-    "langchain-text-splitters==0.3.5",
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-text-splitters>=0.3.0",
+    "numpy>=1.26.0",
 ]
 
 [dependency-groups]

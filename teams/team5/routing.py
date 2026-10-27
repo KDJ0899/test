@@ -5,6 +5,8 @@
 from typing import Literal
 
 from teams.team5.state import MyState
+from teams.team5.tools.registry import REQUIRES_APPROVAL
+from langchain_core.messages import AIMessage
 
 
 def _tool_calls(state: MyState) -> list[dict]:
@@ -12,13 +14,20 @@ def _tool_calls(state: MyState) -> list[dict]:
     return getattr(last_message, "tool_calls", None) or []
 
 
-def route_after_classify(state: MyState) -> Literal["handle_error", "extract_preferences", "agent"]:
-    """error면 handle_error로. trip은 조건 수집으로, 나머지(chat / qa)는 agent로 간다."""
+def route_after_classify(
+    state: MyState,
+) -> Literal["handle_error", "resolve_approval", "extract_preferences", "retrieve", "agent"]:
+    """error면 handle_error로. 승인 대기가 있으면 의도 분류보다 승인 처리를 우선한다. trip은 조건 수집으로, 가이드가 필요한 질문은 retrieve로, 나머지는 agent로 간다."""
     if state.get("error"):
         return "handle_error"
-    if state.get("intent") == "trip":
+    if state.get("pending_approval"):
+        return "resolve_approval"
+    intent = state.get("intent")
+    if intent == "trip":
         return "extract_preferences"
-    return "agent"
+    if state.get("needs_guide"):
+        return "retrieve"  # 가이드 문서가 필요한 질문은 LLM의 툴 선택에 맡기지 않고 먼저 검색한다.
+    return "agent"  # 그 외 chat / qa
 
 
 def route_after_extract(state: MyState) -> Literal["handle_error", "validate_preferences"]:
@@ -34,20 +43,32 @@ def route_after_validate(state: MyState) -> Literal["ask_clarification", "agent"
 
 def route_after_agent(
     state: MyState,
-) -> Literal["handle_error", "tools", "present_candidates", "plan_trip", "respond"]:
-    """tool_calls가 있으면 tools로, 없으면 일정 작성 단계인지 보고
-    present_candidates(관광지/식당 후보를 보여주고 고르게 함, 경기당 1회) / plan_trip / respond."""
+) -> Literal["handle_error", "request_approval", "tools", "present_candidates", "retrieve_for_plan", "respond"]:
+    """tool_calls가 있으면 승인 대상 여부로 request_approval / tools를 고르고, 없으면 일정 작성 단계인지 보고
+    present_candidates(관광지/식당 후보를 보여주고 고르게 함, 경기당 1회) / retrieve_for_plan(가이드 검색 후 plan_trip) / respond."""
     if state.get("error"):
         return "handle_error"
-    if _tool_calls(state):
+    calls = _tool_calls(state)
+    if calls:
+        # 하나라도 승인 대상이면 이번 묶음 전체를 실행하지 않고 승인부터 받는다.
+        if any(call["name"] in REQUIRES_APPROVAL for call in calls):
+            return "request_approval"
         return "tools"
     if state.get("intent") == "trip" and state.get("trip_status") == "planning" and state.get("selected_event_id"):
         choice = state.get("place_choice")
         has_candidates = bool(state.get("places") or state.get("restaurants"))
         if has_candidates and not (choice and choice["event_id"] == state["selected_event_id"]):
             return "present_candidates"  # 후보를 아직 안 보여줬다: 사용자가 원하는 곳을 고르게 하고 이번 턴을 끝낸다.
-        return "plan_trip"
+        return "retrieve_for_plan"
     return "respond"
+
+
+def route_after_retrieve(state: MyState) -> Literal["handle_error", "agent"]:
+    return "handle_error" if state.get("error") else "agent"
+
+
+def route_after_retrieve_for_plan(state: MyState) -> Literal["handle_error", "plan_trip"]:
+    return "handle_error" if state.get("error") else "plan_trip"
 
 
 def route_after_tools(state: MyState) -> Literal["handle_error", "ingest_tool_results"]:
@@ -60,3 +81,25 @@ def route_after_ingest(state: MyState) -> Literal["handle_error", "agent"]:
 
 def route_after_plan_trip(state: MyState) -> Literal["handle_error", "respond"]:
     return "handle_error" if state.get("error") else "respond"
+
+
+def route_after_resolve_approval(
+    state: MyState,
+) -> Literal["execute_approved_tool", "respond", "ask_approval_again"]:
+    """승인이면 저장된 인자로 실행, 거절이면 실행 없이 응답, 승인/거절이 불분명하면 다시 묻는다."""
+    decision = state.get("approval_decision")
+    if decision == "approved":
+        return "execute_approved_tool"
+    if decision == "rejected":
+        return "respond"
+    return "ask_approval_again"
+
+
+def route_after_execute(state: MyState) -> Literal["handle_error", "ingest_tool_results", "respond"]:
+    """승인 실행 결과가 곧 최종 답이면(마지막이 tool_calls 없는 AI 메시지, 예: 저장 완료) respond, 아니면 ingest -> agent."""
+    if state.get("error"):
+        return "handle_error"
+    last_message = state["messages"][-1]
+    if isinstance(last_message, AIMessage) and not last_message.tool_calls:
+        return "respond"
+    return "ingest_tool_results"

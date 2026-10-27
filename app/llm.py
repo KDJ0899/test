@@ -1,8 +1,9 @@
-# LLM 모델 생성부. 공급자를 코드에 하드코딩하지 않고 openai 호환 클라이언트를 쓰되,
+# LLM/임베딩 모델 생성부. 공급자를 코드에 하드코딩하지 않고 openai 호환 클라이언트를 쓰되,
 # 실제 모델명/엔드포인트는 config.py에서만 주입한다 (사내 모델 전환 시 config.py만 변경).
 
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_openai import OpenAIEmbeddings
 
 from teams.team5 import config
 
@@ -16,4 +17,15 @@ def get_llm(**kwargs) -> BaseChatModel:
         api_key=config.OPENAI_API_KEY,
         base_url=config.OPENAI_BASE_URL,
         **kwargs,
+    )
+
+
+def get_embeddings() -> OpenAIEmbeddings:
+    """RAG 벡터스토어용 임베딩 모델 생성."""
+    return OpenAIEmbeddings(
+        model=config.EMBEDDING_MODEL,
+        api_key=config.OPENAI_API_KEY,
+        base_url=config.OPENAI_BASE_URL,
+        # tiktoken이 토큰 수 계산용 파일을 외부에서 내려받다 사내망 SSL 오류가 나므로 길이 체크를 끈다.
+        check_embedding_ctx_length=False,
     )

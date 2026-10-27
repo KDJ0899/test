@@ -1,8 +1,9 @@
-# 로컬 툴 모음. 검색 툴은 data/*.json(샘플 가상 데이터)만 읽는다.
+# 로컬 툴 모음. 검색 툴은 data/*.json(샘플 가상 데이터)만 읽고, save_trip_plan은 data/saved_trips.json에 쓴다.
 # 외부 API는 호출하지 않는다 (전부 저장소 안 데이터만 사용).
 # 모든 툴은 {status, source, data, error?} 형태의 JSON 문자열을 돌려준다 (ingest_tool_results가 이 형식을 읽어 State에 반영).
 
 import json
+import uuid
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 EVENTS_PATH = DATA_DIR / "sports_events.json"
 PLACES_PATH = DATA_DIR / "tourist_places.json"
 RESTAURANTS_PATH = DATA_DIR / "restaurants.json"
+SAVED_TRIPS_PATH = DATA_DIR / "saved_trips.json"
 
 
 def _ok(source: str, data: Any) -> str:
@@ -106,4 +108,19 @@ def search_restaurants(city: str, cuisine: str | None = None, near_venue: str | 
     return _ok("sample:restaurants.json", {"restaurants": restaurants, "count": len(restaurants)})
 
 
-LOCAL_TOOLS = [get_current_datetime, search_sports_events, search_places, search_restaurants]
+@tool
+def save_trip_plan(trip_plan: dict) -> str:
+    """현재 여행 일정(trip_plan)을 로컬 파일(data/saved_trips.json)에 저장한다. 파일을 쓰는 작업이라 사용자 승인이 필요하다.
+    사용자가 일정 저장을 요청했을 때만 호출한다."""
+    source = "local:saved_trips.json"
+    try:
+        saved = _load(SAVED_TRIPS_PATH) if SAVED_TRIPS_PATH.exists() else []
+        saved_id = f"trip-{uuid.uuid4().hex[:8]}"
+        saved.append({"saved_id": saved_id, "saved_at": datetime.now().isoformat(timespec="seconds"), "trip_plan": trip_plan})
+        SAVED_TRIPS_PATH.write_text(json.dumps(saved, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as exc:
+        return _fail(source, f"일정 저장 실패: {exc}")
+    return _ok(source, {"saved_id": saved_id, "path": str(SAVED_TRIPS_PATH)})
+
+
+LOCAL_TOOLS = [get_current_datetime, search_sports_events, search_places, search_restaurants, save_trip_plan]

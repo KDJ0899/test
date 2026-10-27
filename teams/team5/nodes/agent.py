@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from teams.team5.clock import today_label
 from teams.team5 import config
 from app.llm import get_llm
-from teams.team5.prompts import NO_NOTICE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
+from teams.team5.prompts import NO_NOTICE, RAG_CONTEXT_TEMPLATE, SYSTEM_PROMPT, TRIP_CONTEXT_TEMPLATE
 from teams.team5.state import MyState
 from teams.team5.trip_state import describe_event, describe_events, selected_event
 from langchain_core.messages import SystemMessage
@@ -47,6 +47,10 @@ def make_agent_node(tools: list[BaseTool] | None = None) -> Callable[[MyState], 
         messages = [SystemMessage(content=SYSTEM_PROMPT)]
         if intent in ("trip", "qa"):
             messages.append(SystemMessage(content=build_trip_context(state)))
+        docs = state.get("retrieved_docs") or []
+        if docs:
+            context = "\n\n".join(doc.page_content for doc in docs)
+            messages.append(SystemMessage(content=RAG_CONTEXT_TEMPLATE.format(context=context)))
         messages.extend(state["messages"])
 
         try:
