@@ -108,7 +108,6 @@ def make_plan_trip_node() -> Callable[[MyState], Awaitable[dict]]:
                     event=json.dumps(event, ensure_ascii=False),
                     places=json.dumps(state.get("places") or [], ensure_ascii=False),
                     restaurants=json.dumps(state.get("restaurants") or [], ensure_ascii=False),
-                    guide="\n".join(d.page_content for d in state.get("retrieved_docs") or []) or "(없음)",
                     wanted=wanted,
                     feedback=feedback,
                 )

@@ -18,7 +18,6 @@ from teams.team5.trip_state import (
     narrow_events_by_text,
     similar_events,
 )
-from langchain_core.documents import Document
 from langchain_core.messages import ToolMessage
 
 logger = logging.getLogger(__name__)
@@ -74,15 +73,10 @@ def ingest_tool_results_node(state: MyState) -> dict:
             if not result:
                 continue  # 실패한 결과는 캐시에 반영하지 않는다.
             data = result["data"]
-            if message.name == "search_guide_docs":
-                # 가이드 문서는 어떤 의도에서든 반영한다: respond가 출처를 표시하고 plan_trip이 참고한다.
-                found = [Document(page_content=d["content"], metadata={"source": d["source"]}) for d in data["docs"]]
-                changes["retrieved_docs"] = [*changes.get("retrieved_docs", state.get("retrieved_docs") or []), *found]
-                continue
             # 경기 목록 조회(qa)도 아직 고른 경기가 없으면 후보로 저장한다: 그래야 다음 턴에 "그중 28일 경기로 ..."처럼 고를 수 있다.
             first_lookup = message.name == "search_sports_events" and not state.get("selected_event_id")
-            if state.get("intent") not in ("trip", None) and not first_lookup:
-                continue  # 그 외 경기/장소 검색 캐시는 trip 흐름에서만 갱신한다 (None은 승인 후 재개 턴).
+            if state.get("intent") != "trip" and not first_lookup:
+                continue  # 그 외 경기/장소 검색 캐시는 trip 흐름에서만 갱신한다.
             if message.name == "search_sports_events":
                 changes["sports_events"] = data["events"]  # 최신 검색 결과가 후보가 된다
             elif message.name == "search_places":
