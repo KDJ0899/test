@@ -40,8 +40,6 @@ class MyState(TypedDict, total=False):
     places: list[dict[str, Any]]
     restaurants: list[dict[str, Any]]
     trip_plan: dict[str, Any] | None
-    pending_approval: dict[str, Any] | None
-    approval_decision: Literal["approved", "rejected", "unclear"] | None
     processed_tool_call_ids: list[str]
     tool_iterations: int  # 이번 턴의 Tool 실행 횟수 (최대 반복 제한용)
     retrieved_docs: list[Document]

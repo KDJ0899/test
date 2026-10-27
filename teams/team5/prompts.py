@@ -5,8 +5,7 @@ SYSTEM_PROMPT = """당신은 야구(KBO) 경기 관람과 여행 일정을 함�
 - 경기, 관광지, 식당 정보는 검색 툴 결과에 있는 것만 말한다. 임의의 경기/장소/영업시간/이동시간을 만들지 않는다.
 - 샘플 데이터(source_type=sample, is_demo=true)는 실제 확정 일정이 아니라 가상 데이터라고 알린다.
 - 실제 예매, 호텔 예약, 결제는 지원하지 않는다.
-- 관람 준비물, 교통, 여행 원칙 같은 안내는 제공된 가이드 문서 내용만 근거로 답한다. 문서가 부족하면 search_guide_docs로 더 찾는다.
-- 사용자가 승인 요청에 답한 직후라면 그 직전의 원래 요청을 이어서 처리한다."""
+- 관람 준비물, 교통, 여행 원칙 같은 안내는 제공된 가이드 문서 내용만 근거로 답한다. 문서가 부족하면 search_guide_docs로 더 찾는다."""
 
 CLASSIFY_SYSTEM_PROMPT = """사용자의 마지막 메시지를 다음 세 가지 중 하나로 분류한다.
 
@@ -60,8 +59,7 @@ TRIP_CONTEXT_TEMPLATE = """[여행 계획 상태] (기준 날짜: {today})
   알림이 있으면 그 내용을 먼저 전한다 (사용자가 말한 경기가 없다고 알리고, 후보가 대신 고른 대안임을 설명한다).
 - planning: 선택한 경기 도시로 search_places / search_restaurants를 호출해 후보를 확보한다.
   (가이드 문서는 일정 작성 단계에서 자동으로 검색되어 반영된다.)
-  이미 충분하면 추가 검색 없이 "검색 완료"라고만 답한다 (일정 작성은 다음 단계가 맡는다).
-- 일정 저장 요청: save_trip_plan을 호출한다 (인자는 저장된 일정으로 대체된다)."""
+  이미 충분하면 추가 검색 없이 "검색 완료"라고만 답한다 (일정 작성은 다음 단계가 맡는다)."""
 
 RAG_CONTEXT_TEMPLATE = """다음은 검색된 가이드 문서다. 이 내용을 바탕으로 답하고, 문서에 없는 내용은 지어내지 않는다.
 실제 경기 일정은 이 문서가 아니라 검색 툴로 확인해야 한다.
@@ -141,20 +139,6 @@ CLARIFICATION_TEMPLATE = """여행 일정을 만들려면 조건이 더 필요�
 
 추가 정보를 입력해주세요."""
 CLARIFICATION_NONE_FILLED = "- (아직 없음)"
-
-# --- 승인 대화 (HITL을 interrupt 대신 대화로 처리한다) ---
-APPROVAL_REQUEST_HEADER = "[승인 요청]"
-APPROVAL_REQUEST_TEMPLATE = """{header} 아래 작업을 실행할까요? 실행하려면 '승인', 취소하려면 '거절'이라고 답해주세요.
-{calls}"""
-APPROVAL_CALL_LINE_TEMPLATE = "- {name}: {args}"
-APPROVAL_AGAIN_TEMPLATE = """대기 중인 승인 요청이 있어 다른 요청은 처리하지 않았어요. '승인' 또는 '거절'로 먼저 답해주세요.
-(다른 요청을 하려면 먼저 '거절'해 주세요.)
-{request}"""
-APPROVAL_REJECTED_MESSAGE = "요청을 거절하셨어요. {name}은(는) 실행하지 않았습니다."
-APPROVAL_PENDING_TOOL_MESSAGE = "사용자 승인 대기 중이라 아직 실행되지 않았다."
-NO_PLAN_TO_SAVE_MESSAGE = "저장할 여행 일정이 아직 없어요. 먼저 경기를 고르고 일정을 만들어 주세요."
-SAVE_DONE_TEMPLATE = "여행 일정을 저장했어요. (저장 ID: {saved_id}, 파일: {path})"
-APPROVED_TOOL_FAILED_TEMPLATE = "{name} 실행에 실패했어요: {error}"
 
 # --- 일정 표시 ---
 PLAN_NOTICE = (

@@ -1,8 +1,4 @@
----
-config:
-  flowchart:
-    curve: linear
----
+%%{init: {'flowchart': {'curve': 'linear'}}}%%
 graph TD;
 	__start__([<p>__start__</p>]):::first
 	classify(classify)
@@ -11,56 +7,44 @@ graph TD;
 	ask_clarification(ask_clarification)
 	retrieve(retrieve)
 	retrieve_for_plan(retrieve_for_plan)
-	present_candidates(present_candidates)
 	agent(agent)
 	tools(tools)
 	ingest_tool_results(ingest_tool_results)
+	present_candidates(present_candidates)
 	plan_trip(plan_trip)
-	request_approval(request_approval)
-	resolve_approval(resolve_approval)
-	ask_approval_again(ask_approval_again)
-	execute_approved_tool(execute_approved_tool)
 	respond(respond)
-	error(error)
+	handle_error(handle_error)
+	save_session(save_session)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> classify;
-	agent -.-> error;
-	agent -.-> request_approval;
-	agent -.-> respond;
+	ask_clarification --> save_session;
+	handle_error --> save_session;
+	present_candidates --> save_session;
+	respond --> save_session;
+	save_session --> __end__;
+	classify -.-> handle_error;
+	classify -.-> extract_preferences;
+	classify -.-> retrieve;
+	classify -.-> agent;
+	extract_preferences -.-> handle_error;
+	extract_preferences -.-> validate_preferences;
+	validate_preferences -.-> ask_clarification;
+	validate_preferences -.-> agent;
+	agent -.-> handle_error;
+	agent -.-> tools;
 	agent -.-> present_candidates;
 	agent -.-> retrieve_for_plan;
-	present_candidates --> __end__;
-	agent -.-> tools;
-	classify -.-> agent;
-	classify -.-> error;
-	classify -.-> extract_preferences;
-	classify -.-> resolve_approval;
-	classify -.-> retrieve;
-	execute_approved_tool -.-> error;
-	execute_approved_tool -.-> ingest_tool_results;
-	execute_approved_tool -.-> respond;
-	extract_preferences -.-> error;
-	extract_preferences -.-> validate_preferences;
-	ingest_tool_results -.-> agent;
-	ingest_tool_results -.-> error;
-	plan_trip -.-> error;
-	plan_trip -.-> respond;
-	resolve_approval -.-> ask_approval_again;
-	resolve_approval -.-> execute_approved_tool;
-	resolve_approval -.-> respond;
+	agent -.-> respond;
+	retrieve -.-> handle_error;
 	retrieve -.-> agent;
-	retrieve -.-> error;
-	retrieve_for_plan -.-> error;
+	retrieve_for_plan -.-> handle_error;
 	retrieve_for_plan -.-> plan_trip;
-	tools -.-> error;
+	tools -.-> handle_error;
 	tools -.-> ingest_tool_results;
-	validate_preferences -.-> agent;
-	validate_preferences -.-> ask_clarification;
-	ask_approval_again --> __end__;
-	ask_clarification --> __end__;
-	error --> __end__;
-	request_approval --> __end__;
-	respond --> __end__;
+	ingest_tool_results -.-> handle_error;
+	ingest_tool_results -.-> agent;
+	plan_trip -.-> handle_error;
+	plan_trip -.-> respond;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc

@@ -81,8 +81,8 @@ def ingest_tool_results_node(state: MyState) -> dict:
                 continue
             # 경기 목록 조회(qa)도 아직 고른 경기가 없으면 후보로 저장한다: 그래야 다음 턴에 "그중 28일 경기로 ..."처럼 고를 수 있다.
             first_lookup = message.name == "search_sports_events" and not state.get("selected_event_id")
-            if state.get("intent") not in ("trip", None) and not first_lookup:
-                continue  # 그 외 경기/장소 검색 캐시는 trip 흐름에서만 갱신한다 (None은 승인 후 재개 턴).
+            if state.get("intent") != "trip" and not first_lookup:
+                continue  # 그 외 경기/장소 검색 캐시는 trip 흐름에서만 갱신한다.
             if message.name == "search_sports_events":
                 changes["sports_events"] = data["events"]  # 최신 검색 결과가 후보가 된다
             elif message.name == "search_places":

@@ -17,9 +17,6 @@ AGENT_MAX_ITERATIONS: int = 10
 # 일정 작성 최대 시도 횟수 (초안 1회 + 검증 실패 시 위반 내용을 알려 다시 작성)
 PLAN_MAX_ATTEMPTS: int = 3
 
-# 승인이 필요한 툴 이름. 승인이 필요 없으면 []로 둔다.
-APPROVAL_REQUIRED_TOOLS: list[str] = ["save_trip_plan"]
-
 # 상대 날짜("다음 달", "이번 주")의 기준일. None이면 오늘. 데모/테스트에서 "YYYY-MM-DD"로 고정한다.
 # 샘플 경기가 2026-10~11월이므로 데모에서는 "2026-10-16" 등으로 고정하면 편하다.
 TODAY_OVERRIDE: str | None = None
