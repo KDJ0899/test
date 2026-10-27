@@ -84,30 +84,30 @@ def build_graph() -> CompiledStateGraph:
     graph.add_node("ask_approval_again", ask_approval_again_node)
     graph.add_node("execute_approved_tool", execute_approved_tool_node)
     graph.add_node("respond", respond_node)
-    graph.add_node("error", error_node)
+    graph.add_node("handle_error", error_node)
     graph.add_node("save_session", save_session_node)
 
     graph.add_edge(START, "classify")
     # 조건부 엣지: 분기 판단은 전부 routing.py의 함수가 하고, 여기서는 반환값 -> 노드 연결만 선언한다.
     graph.add_conditional_edges("classify", route_after_classify,
-        ["error", "resolve_approval", "extract_preferences", "retrieve", "agent"])
-    graph.add_conditional_edges("extract_preferences", route_after_extract, ["error", "validate_preferences"])
+        ["handle_error", "resolve_approval", "extract_preferences", "retrieve", "agent"])
+    graph.add_conditional_edges("extract_preferences", route_after_extract, ["handle_error", "validate_preferences"])
     graph.add_conditional_edges("validate_preferences", route_after_validate, ["ask_clarification", "agent"])
     graph.add_conditional_edges("agent", route_after_agent,
-        ["error", "request_approval", "tools", "present_candidates", "retrieve_for_plan", "respond"])
-    graph.add_conditional_edges("retrieve", route_after_retrieve, ["error", "agent"])
-    graph.add_conditional_edges("retrieve_for_plan", route_after_retrieve_for_plan, ["error", "plan_trip"])
-    graph.add_conditional_edges("tools", route_after_tools, ["error", "ingest_tool_results"])
-    graph.add_conditional_edges("ingest_tool_results", route_after_ingest, ["error", "agent"])
-    graph.add_conditional_edges("plan_trip", route_after_plan_trip, ["error", "respond"])
+        ["handle_error", "request_approval", "tools", "present_candidates", "retrieve_for_plan", "respond"])
+    graph.add_conditional_edges("retrieve", route_after_retrieve, ["handle_error", "agent"])
+    graph.add_conditional_edges("retrieve_for_plan", route_after_retrieve_for_plan, ["handle_error", "plan_trip"])
+    graph.add_conditional_edges("tools", route_after_tools, ["handle_error", "ingest_tool_results"])
+    graph.add_conditional_edges("ingest_tool_results", route_after_ingest, ["handle_error", "agent"])
+    graph.add_conditional_edges("plan_trip", route_after_plan_trip, ["handle_error", "respond"])
     graph.add_conditional_edges("resolve_approval", route_after_resolve_approval,
         ["execute_approved_tool", "respond", "ask_approval_again"])
     graph.add_conditional_edges("execute_approved_tool", route_after_execute,
-        ["error", "ingest_tool_results", "respond"])
+        ["handle_error", "ingest_tool_results", "respond"])
 
     # 사용자에게 질문/승인 요청을 내보내는 노드와 respond/error는 턴을 끝낸다. 끝내기 전에 save_session이 여행 상태를 보관한다.
     # (호출자는 messages만 보내므로 다음 턴 classify가 보관한 상태를 복원한다.)
-    for node in ("ask_clarification", "present_candidates", "request_approval", "ask_approval_again", "respond", "error"):
+    for node in ("ask_clarification", "present_candidates", "request_approval", "ask_approval_again", "respond", "handle_error"):
         graph.add_edge(node, "save_session")
     graph.add_edge("save_session", END)
 

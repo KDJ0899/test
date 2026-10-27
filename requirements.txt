@@ -1,8 +1,8 @@
 # 실행에 필요한 라이브러리 (Python 3.11+). 설치: pip install -r requirements.txt
 # 버전은 uv.lock 으로 검증한 직접 의존성만 적었다. 전체 고정이 필요하면 uv sync 를 쓴다.
-langgraph>=1.2,<2
-langchain>=1.4,<2
-langchain-core>=1.6,<2
-langchain-openai>=1.7,<2
-langchain-text-splitters>=1.1,<2
+langgraph==0.2.60
+langchain==0.3.14
+langchain-core==0.3.29
+langchain-openai==0.2.14
+langchain-text-splitters==0.3.5
 numpy>=2.4,<3
