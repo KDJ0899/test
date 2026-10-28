@@ -78,36 +78,33 @@ KBO 경기 관람과 여행 일정을 함께 계획해 주는 LangGraph workflow
 
 분기 함수는 전부 `routing.py`에 모여 있고, `workflow.py`는 반환값 → 노드 연결만 선언한다. 모든 분기는 `error`가 있으면 `handle_error`를 우선한다(`handle_error` 열은 생략).
 
-고정 엣지
+노드 실행 순서대로 한 표에 묶었다. 유형이 `고정`이면 조건 없이 항상 그 노드로 가고, `조건부`이면 조건에 맞는 한 곳으로 간다. 출발 칸이 빈 행은 위 행과 같은 노드다.
 
-| 출발 | 도착 |
-|---|---|
-| `START` | `classify` |
-| `ask_clarification`, `present_candidates`, `respond`, `handle_error` | `save_session` |
-| `save_session` | `END` |
+| 출발 | 유형 | 조건 | 도착 |
+|---|---|---|---|
+| `START` | 고정 | - | `classify` |
+| `classify` | 조건부 | `intent == "trip"` | `extract_preferences` |
+| | 조건부 | `needs_guide == True` (chat/qa) | `retrieve` |
+| | 조건부 | 그 외 (chat/qa) | `agent` |
+| `extract_preferences` | 고정 | - | `validate_preferences` |
+| `validate_preferences` | 조건부 | `missing_fields` 또는 `clarification_note` 있음 | `ask_clarification` |
+| | 조건부 | 조건 충분 | `agent` |
+| `ask_clarification` | 고정 | - | `save_session` |
+| `retrieve` | 고정 | - | `agent` |
+| `agent` | 조건부 | `tool_calls` 있음 | `tools` |
+| | 조건부 | `tool_calls` 없음 + trip·`planning`·경기 선택됨 + 후보 있는데 아직 안내 안 함 | `present_candidates` |
+| | 조건부 | `tool_calls` 없음 + trip·`planning`·경기 선택됨 (후보 안내를 마쳤거나 후보 없음) | `retrieve_for_plan` |
+| | 조건부 | `tool_calls` 없음 (그 외) | `respond` |
+| `tools` | 고정 | - | `ingest_tool_results` |
+| `ingest_tool_results` | 고정 | - | `agent` |
+| `present_candidates` | 고정 | - | `save_session` |
+| `retrieve_for_plan` | 고정 | - | `plan_trip` |
+| `plan_trip` | 고정 | - | `respond` (검증 실패 안내문 포함) |
+| `respond` | 고정 | - | `save_session` |
+| `handle_error` | 고정 | - | `save_session` |
+| `save_session` | 고정 | - | `END` |
 
-조건부 엣지
-
-| 출발 | 조건 | 도착 |
-|---|---|---|
-| `classify` | `error` | `handle_error` |
-| `classify` | `intent == "trip"` | `extract_preferences` |
-| `classify` | `needs_guide == True` (chat/qa) | `retrieve` |
-| `classify` | 그 외 (chat/qa) | `agent` |
-| `extract_preferences` | `error` | `handle_error` |
-| `extract_preferences` | 정상 | `validate_preferences` |
-| `validate_preferences` | `missing_fields` 또는 `clarification_note` 있음 | `ask_clarification` |
-| `validate_preferences` | 조건 충분 | `agent` |
-| `agent` | `error`(반복 한도 초과 포함) | `handle_error` |
-| `agent` | `tool_calls` 있음 | `tools` |
-| `agent` | `tool_calls` 없음 + trip·`planning`·경기 선택됨 + 후보 있는데 아직 안내 안 함 | `present_candidates` |
-| `agent` | `tool_calls` 없음 + trip·`planning`·경기 선택됨 (후보 안내를 마쳤거나 후보 없음) | `retrieve_for_plan` |
-| `agent` | `tool_calls` 없음 (그 외) | `respond` |
-| `retrieve` | `error` / 정상 | `handle_error` / `agent` |
-| `retrieve_for_plan` | `error` / 정상 | `handle_error` / `plan_trip` |
-| `tools` | `error` / 정상 | `handle_error` / `ingest_tool_results` |
-| `ingest_tool_results` | `error` / 정상 | `handle_error` / `agent` |
-| `plan_trip` | `error` / 정상 (검증 실패 안내문 포함) | `handle_error` / `respond` |
+에러 경로: `classify`, `extract_preferences`, `retrieve`, `agent`(반복 한도 초과 포함), `tools`, `ingest_tool_results`, `retrieve_for_plan`, `plan_trip`은 위 표의 어느 행보다 먼저 `error`를 확인하고, 있으면 `handle_error`로 간다. 그래서 이 노드들의 고정 행(`retrieve → agent` 등)도 실제로는 `error` 유무를 보는 조건부 엣지로 구현된다.
 
 ### 1.4 워크플로우 다이어그램
 
@@ -115,20 +112,20 @@ KBO 경기 관람과 여행 일정을 함께 계획해 주는 LangGraph workflow
 flowchart TD
     START([START]) --> classify
 
-    classify -->|intent = trip| extract_preferences
-    classify -->|needs_guide| retrieve
-    classify -->|chat / qa| agent
+    classify -->|"intent = trip"| extract_preferences
+    classify -->|"needs_guide = True"| retrieve
+    classify -->|"그 외 (chat / qa)"| agent
 
     extract_preferences --> validate_preferences
-    validate_preferences -->|조건 부족 / 확인 필요| ask_clarification
-    validate_preferences -->|조건 충분| agent
+    validate_preferences -->|"조건 부족 / 확인 필요"| ask_clarification
+    validate_preferences -->|"조건 충분"| agent
 
     retrieve --> agent
 
-    agent -->|tool_calls| tools
-    agent -->|일정 작성 단계 + 후보 미안내| present_candidates
-    agent -->|일정 작성 단계| retrieve_for_plan
-    agent -->|tool_calls 없음| respond
+    agent -->|"tool_calls 있음"| tools
+    agent -->|"tool_calls 없음 + 일정 작성 단계 + 후보 미안내"| present_candidates
+    agent -->|"tool_calls 없음 + 일정 작성 단계"| retrieve_for_plan
+    agent -->|"tool_calls 없음 (그 외)"| respond
 
     tools --> ingest_tool_results --> agent
     retrieve_for_plan --> plan_trip --> respond
@@ -139,15 +136,10 @@ flowchart TD
     handle_error --> save_session
     save_session --> END([END])
 
-    classify -. error .-> handle_error
-    extract_preferences -. error .-> handle_error
-    retrieve -. error .-> handle_error
-    agent -. error .-> handle_error
-    tools -. error .-> handle_error
-    ingest_tool_results -. error .-> handle_error
-    retrieve_for_plan -. error .-> handle_error
-    plan_trip -. error .-> handle_error
+    classify & extract_preferences & retrieve & agent & tools & ingest_tool_results & retrieve_for_plan & plan_trip -. error .-> handle_error
 ```
+
+범례: 실선 라벨 없음 = 고정 엣지, 실선 라벨 있음 = 조건부 엣지(1.3 표의 조건), 점선 = `error`가 있을 때 우선하는 경로.
 
 ### 1.5 이 구조로 설계한 이유
 
